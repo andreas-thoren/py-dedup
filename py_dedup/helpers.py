@@ -264,14 +264,20 @@ class DupFinder:
                 file_sizez.append(size_value)
 
         with ProcessPoolExecutor() as executor:
-            results = executor.map(DupFinder._get_file_hash, file_paths, [self.chunk_size] * len(file_paths))
-        
+            results = executor.map(
+                DupFinder._get_file_hash,
+                file_paths,
+                [self.chunk_size] * len(file_paths),
+            )
+
         hashed_potential_duplicates = {}
         for i, file_hash in enumerate(results):
             if file_hash is not None:
-                size_dict: dict = hashed_potential_duplicates.setdefault(file_sizez[i], {})
+                size_dict: dict = hashed_potential_duplicates.setdefault(
+                    file_sizez[i], {}
+                )
                 size_dict.setdefault(file_hash, []).append(file_paths[i])
-        
+
         duplicates = {}
         for size in tuple(hashed_potential_duplicates.keys()):
             hash_map = hashed_potential_duplicates.pop(size)
@@ -287,9 +293,7 @@ class DupFinder:
         return duplicates
 
     @staticmethod
-    def _get_file_hash(
-        path: str, chunk_size: int
-    ) -> str | None:
+    def _get_file_hash(path: str, chunk_size: int) -> str | None:
         """
         Calculate the MD5 hash of a file and return it as a hexadecimal string.
 
