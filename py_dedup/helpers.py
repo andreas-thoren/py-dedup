@@ -249,8 +249,12 @@ class DupFinder:
 
     def _filter_potential_duplicates(
         self, potential_duplicates: dict[int, list[str]]
-    ) -> dict[int, list[str]]:
-        """Hashes files in potential duplicates and returns only true duplicates"""
+    ) -> dict[int, list[list[str]]]:
+        """
+        Returns true duplicates as a dict mapping:
+        { file size: list of duplicate groups }
+            each group is a list of file paths.
+        """
         file_paths = []
         file_sizez = []
 
@@ -260,12 +264,13 @@ class DupFinder:
                 file_sizez.append(size_value)
 
         with ProcessPoolExecutor() as executor:
-            results = executor.map(self._get_file_hash, file_paths, [self.chunk_size] * len(file_paths))
+            results = executor.map(DupFinder._get_file_hash, file_paths, [self.chunk_size] * len(file_paths))
         
         hashed_potential_duplicates = {}
         for i, file_hash in enumerate(results):
-            size_dict: dict = hashed_potential_duplicates.setdefault(file_sizez[i], {})
-            size_dict.setdefault(file_hash, []).append(file_paths[i])
+            if file_hash is not None:
+                size_dict: dict = hashed_potential_duplicates.setdefault(file_sizez[i], {})
+                size_dict.setdefault(file_hash, []).append(file_paths[i])
         
         duplicates = {}
         for size in tuple(hashed_potential_duplicates.keys()):
@@ -284,7 +289,7 @@ class DupFinder:
     @staticmethod
     def _get_file_hash(
         path: str, chunk_size: int
-    ) -> tuple[str | None]:
+    ) -> str | None:
         """
         Calculate the MD5 hash of a file and return it as a hexadecimal string.
 
@@ -293,9 +298,8 @@ class DupFinder:
             chunk_size (int): The size of the chunks to read from the file (in bytes).
 
         Returns:
-            tuple[str | None, Exception | None]:
-                - str | None: The MD5 hash of the file as a hexadecimal string if successful
-                    or None if an error occurs.
+            str | None: The MD5 hash of the file as a hexadecimal string
+                if successful or None if an error occurs.
 
         Raises:
             ValueError: If `chunk_size` is less than or equal to 0.
