@@ -40,6 +40,7 @@ from __future__ import annotations
 import os
 import pathlib
 import hashlib
+from concurrent.futures import ProcessPoolExecutor
 from typing import Iterable
 
 
@@ -250,31 +251,40 @@ class DupFinder:
         self, potential_duplicates: dict[int, list[str]]
     ) -> dict[int, list[str]]:
         """Hashes files in potential duplicates and returns only true duplicates"""
-        duplicates = {}
+        file_paths = []
+        file_sizez = []
 
         for size_value, paths in potential_duplicates.items():
-            # Create hash map of all files of equal size
-            hash_map = {}
             for path in paths:
-                h, _ = self._get_file_hash(path, self.chunk_size)
-                hash_map.setdefault(h, []).append(path)
+                file_paths.append(path)
+                file_sizez.append(size_value)
 
-            # Collect duplicates among hashed files
-            all_duplicates_for_size = [
-                equal_hash_paths
-                for _, equal_hash_paths in hash_map.items()
-                if len(equal_hash_paths) > 1
-            ]
+        with ProcessPoolExecutor() as executor:
+            results = executor.map(self._get_file_hash, file_paths, [self.chunk_size] * len(paths))
+        
+        hashed_potential_duplicates = {}
+        for i, file_hash in enumerate(results):
+            size_dict: dict = hashed_potential_duplicates.setdefault(file_sizez[i], {})
+            size_dict.setdefault(file_hash, []).append(file_paths[i])
+        
+        duplicates = {}
+        for size in tuple(hashed_potential_duplicates.keys()):
+            hash_map = hashed_potential_duplicates.pop(size)
+            size_duplicates = []
 
-            if all_duplicates_for_size:
-                duplicates[size_value] = all_duplicates_for_size
+            for hash_equals in hash_map.values():
+                if len(hash_equals) > 1:
+                    size_duplicates.append(hash_equals)
+
+            if size_duplicates:
+                duplicates[size] = size_duplicates
 
         return duplicates
 
     @staticmethod
     def _get_file_hash(
         path: str, chunk_size: int
-    ) -> tuple[str | None, Exception | None]:
+    ) -> tuple[str | None]:
         """
         Calculate the MD5 hash of a file and return it as a hexadecimal string.
 
@@ -286,8 +296,6 @@ class DupFinder:
             tuple[str | None, Exception | None]:
                 - str | None: The MD5 hash of the file as a hexadecimal string if successful
                     or None if an error occurs.
-                - Exception | None: The exception object if an error is encountered (e.g., OSError, PermissionError)
-                    or None if the operation is successful.
 
         Raises:
             ValueError: If `chunk_size` is less than or equal to 0.
@@ -301,11 +309,11 @@ class DupFinder:
             with open(path, "rb") as f:
                 while chunk := f.read(chunk_size):
                     hasher.update(chunk)
-        except (OSError, PermissionError) as e:
+        except (OSError, PermissionError):
             print(f"Could not read file for hashing: {path}")
-            return None, e
+            return None
 
-        return hasher.hexdigest(), None
+        return hasher.hexdigest()
 
     def refresh(self) -> None:
         """
