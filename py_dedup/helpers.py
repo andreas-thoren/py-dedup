@@ -260,7 +260,7 @@ class DupFinder:
                 file_sizez.append(size_value)
 
         with ProcessPoolExecutor() as executor:
-            results = executor.map(self._get_file_hash, file_paths, [self.chunk_size] * len(paths))
+            results = executor.map(self._get_file_hash, file_paths, [self.chunk_size] * len(file_paths))
         
         hashed_potential_duplicates = {}
         for i, file_hash in enumerate(results):

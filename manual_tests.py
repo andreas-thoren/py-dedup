@@ -50,4 +50,4 @@ def temp_test():
 
 
 if __name__ == "__main__":
-    time_dup_finder_methods([MANUAL_TEST_DIR])
+    time_dup_finder_methods([TEST_DIR, CMPR_DIR])
