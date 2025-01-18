@@ -274,20 +274,41 @@ class DupFinder:
 
         return duplicates
 
-    def _get_file_hash(self, path: str) -> str:
+    @staticmethod
+    def _get_file_hash(
+        path: str, chunk_size: int
+    ) -> tuple[str | None, Exception | None]:
         """
-        Calculate the MD5 hash of the file at 'path' and return it
-        as a hexadecimal string. Reads the file in chunks to handle
-        large files efficiently.
+        Calculate the MD5 hash of a file and return it as a hexadecimal string.
+
+        Args:
+            path (str): The path to the file to hash.
+            chunk_size (int): The size of the chunks to read from the file (in bytes).
+
+        Returns:
+            tuple[str | None, Exception | None]:
+                - str | None: The MD5 hash of the file as a hexadecimal string if successful
+                    or None if an error occurs.
+                - Exception | None: The exception object if an error is encountered (e.g., OSError, PermissionError)
+                    or None if the operation is successful.
+
+        Raises:
+            ValueError: If `chunk_size` is less than or equal to 0.
         """
+        if chunk_size <= 0:
+            raise ValueError("chunk_size must be greater than 0")
+
         hasher = hashlib.md5()
-        with open(path, "rb") as f:
-            while True:
-                chunk = f.read(self.chunk_size)
-                if not chunk:
-                    break
-                hasher.update(chunk)
-        return hasher.hexdigest()
+
+        try:
+            with open(path, "rb") as f:
+                while chunk := f.read(chunk_size):
+                    hasher.update(chunk)
+        except (OSError, PermissionError) as e:
+            print(f"Could not read file for hashing: {path}")
+            return None, e
+
+        return hasher.hexdigest(), None
 
     def refresh(self) -> None:
         """
