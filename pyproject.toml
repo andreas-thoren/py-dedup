@@ -1,0 +1,26 @@
+# -------------------------
+# pyproject.toml
+# -------------------------
+[build-system]
+requires = ["setuptools>=63.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "py-dedup"
+version = "0.1.0a1"
+description = "A Python dedup tool with no external dependencies."
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Andreas Thorén", email = "andreasthoren79@gmail.com"}
+]
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+]
+
+[tool.setuptools.packages.find]
+include = ["py_dedup"]

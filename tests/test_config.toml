@@ -1,0 +1,2 @@
+[paths]
+manual_test_dir = "tests/test_data" # Replace with desired test_dir for manual testing 
