@@ -256,11 +256,8 @@ class DupFinder:
             # Create hash map of all files of equal size
             hash_map = {}
             for path in paths:
-                try:
-                    h = self._get_file_hash(path)
-                    hash_map.setdefault(h, []).append(path)
-                except (OSError, PermissionError):
-                    print(f"Could not read file for hashing: {path}")
+                h, _ = self._get_file_hash(path, self.chunk_size)
+                hash_map.setdefault(h, []).append(path)
 
             # Collect duplicates among hashed files
             all_duplicates_for_size = [
