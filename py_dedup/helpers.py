@@ -40,6 +40,7 @@ from __future__ import annotations
 import os
 import pathlib
 import hashlib
+from concurrent.futures import ProcessPoolExecutor
 from typing import Iterable
 
 
@@ -248,45 +249,79 @@ class DupFinder:
 
     def _filter_potential_duplicates(
         self, potential_duplicates: dict[int, list[str]]
-    ) -> dict[int, list[str]]:
-        """Hashes files in potential duplicates and returns only true duplicates"""
-        duplicates = {}
+    ) -> dict[int, list[list[str]]]:
+        """
+        Returns true duplicates as a dict mapping:
+        { file size: list of duplicate groups }
+            each group is a list of file paths.
+        """
+        file_paths = []
+        file_sizez = []
 
         for size_value, paths in potential_duplicates.items():
-            # Create hash map of all files of equal size
-            hash_map = {}
             for path in paths:
-                try:
-                    h = self._get_file_hash(path)
-                    hash_map.setdefault(h, []).append(path)
-                except (OSError, PermissionError):
-                    print(f"Could not read file for hashing: {path}")
+                file_paths.append(path)
+                file_sizez.append(size_value)
 
-            # Collect duplicates among hashed files
-            all_duplicates_for_size = [
-                equal_hash_paths
-                for _, equal_hash_paths in hash_map.items()
-                if len(equal_hash_paths) > 1
-            ]
+        with ProcessPoolExecutor() as executor:
+            results = executor.map(
+                DupFinder._get_file_hash,
+                file_paths,
+                [self.chunk_size] * len(file_paths),
+                chunksize=32,
+            )
 
-            if all_duplicates_for_size:
-                duplicates[size_value] = all_duplicates_for_size
+        hashed_potential_duplicates = {}
+        for i, file_hash in enumerate(results):
+            if file_hash is not None:
+                size_dict: dict = hashed_potential_duplicates.setdefault(
+                    file_sizez[i], {}
+                )
+                size_dict.setdefault(file_hash, []).append(file_paths[i])
+
+        duplicates = {}
+        for size in tuple(hashed_potential_duplicates.keys()):
+            hash_map = hashed_potential_duplicates.pop(size)
+            size_duplicates = []
+
+            for hash_equals in hash_map.values():
+                if len(hash_equals) > 1:
+                    size_duplicates.append(hash_equals)
+
+            if size_duplicates:
+                duplicates[size] = size_duplicates
 
         return duplicates
 
-    def _get_file_hash(self, path: str) -> str:
+    @staticmethod
+    def _get_file_hash(path: str, chunk_size: int) -> str | None:
         """
-        Calculate the MD5 hash of the file at 'path' and return it
-        as a hexadecimal string. Reads the file in chunks to handle
-        large files efficiently.
+        Calculate the MD5 hash of a file and return it as a hexadecimal string.
+
+        Args:
+            path (str): The path to the file to hash.
+            chunk_size (int): The size of the chunks to read from the file (in bytes).
+
+        Returns:
+            str | None: The MD5 hash of the file as a hexadecimal string
+                if successful or None if an error occurs.
+
+        Raises:
+            ValueError: If `chunk_size` is less than or equal to 0.
         """
+        if chunk_size <= 0:
+            raise ValueError("chunk_size must be greater than 0")
+
         hasher = hashlib.md5()
-        with open(path, "rb") as f:
-            while True:
-                chunk = f.read(self.chunk_size)
-                if not chunk:
-                    break
-                hasher.update(chunk)
+
+        try:
+            with open(path, "rb") as f:
+                while chunk := f.read(chunk_size):
+                    hasher.update(chunk)
+        except (OSError, PermissionError):
+            print(f"Could not read file for hashing: {path}")
+            return None
+
         return hasher.hexdigest()
 
     def refresh(self) -> None:
