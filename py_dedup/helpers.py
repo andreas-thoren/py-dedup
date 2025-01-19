@@ -268,6 +268,7 @@ class DupFinder:
                 DupFinder._get_file_hash,
                 file_paths,
                 [self.chunk_size] * len(file_paths),
+                chunksize=32,
             )
 
         hashed_potential_duplicates = {}
