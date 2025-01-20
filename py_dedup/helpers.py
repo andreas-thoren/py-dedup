@@ -171,16 +171,17 @@ class DupFinder:
         1. Group files by size using the _collect_files_by_size method.
         2. Populate `self._empty_files` with a list of files that have a size of 0 bytes.
         3. Identify potential duplicates, identified as more than 1 file of same size.
-        4. Populate `self._duplicates` using the _filter_potential_duplicates method
-        5. Convert actual duplicates to pathlib.Path instances
-
-        self._duplicates = {
+        4. Get actual duplicates using the _filter_potential_duplicates method
+        5. Convert actual duplicates to pathlib.Path instances and store final result
+            in `self._duplicates` (format below).
+        {
                size: [[dup1_path1, dup1_path2], [dup2_path1, ...], ...],
                ...
         }
         """
-        # 1. Group files by size, delegates to _collect_files_by_size
-        size_map: dict[int, list[str]] = {}  # size map will be modified in place by _collect_files_by_size
+        # 1. Group files by size, delegates to _collect_files_by_size.
+        # size_map will be modified in place by _collect_files_by_size.
+        size_map: dict[int, list[str]] = {}
         for dir_path in self._dirs:
             self._collect_files_by_size(dir_path, size_map)
 
@@ -215,26 +216,24 @@ class DupFinder:
         self, dir_path: pathlib.Path | str, size_map: dict[int, list[str]]
     ) -> None:
         """
-        Recursively traverse 'dir_path' using os.scandir, grouping file paths
-        by file size in 'size_map' (a dict).
+        Recursively traverse a directory and group files by their size, storing results in `size_map`.
 
-        size_map format:
+        The `size_map` dictionary has the form:
             {
-                file_size: [list_of_file_paths_with_that_size],
+                file_size: ["path/to/file1", "path/to/file2", ...],
                 ...
             }
 
         Args:
-            dir_path (Path | str): The directory to scan recursively.
-            size_map (dict): A dictionary mapping file sizes (int) to a list of file paths (str).
-
-        Returns:
-            None: This method modifies `size_map` in place.
+            dir_path (pathlib.Path | str): The directory to scan.
+            size_map (dict[int, list[str]]): A dictionary mapping file sizes to lists of file paths.
+                This is modified in-place.
 
         Notes:
-            - If a file or subdirectory is inaccessible, a message is printed instead of raising an exception.
-            - Symlinks are **not** followed; symbolic links are ignored during scanning.
-            - Subdirectories are explored via recursion.
+            - This method modifies the argument `size_map` in place.
+            - Ignores symlinks (not followed).
+            - Prints a message instead of raising an exception if a file/directory is inaccessible.
+            - Descends into subdirectories recursively.
         """
         try:
             with os.scandir(dir_path) as entries:
@@ -255,23 +254,24 @@ class DupFinder:
         self, potential_duplicates: list[str], potential_duplicates_sizes: list[int]
     ) -> dict[int, list[list[str]]]:
         """
-        Filters potential duplicates through hashing with md5. The actual hashing is
-        delegated to _get_file_hash. Multiprocessing is used for performance.
+        Filter potential duplicates by hashing each file (MD5), using multiprocessing for performance.
 
         Args:
-            potential_duplicates (list[str]): A list of files that represents potential duplicates.
-            potential_duplicates_sizes (list[int]): A list of numbers representing the file sizes
-                of the potential_duplicates. The index positions in this list matches with
-                the corresponding files in potential_duplicates.
+            potential_duplicates (list[str]): The file paths that might be duplicates.
+            potential_duplicates_sizes (list[int]): The file sizes corresponding to each path in
+                `potential_duplicates`. Indices in this list match the order of `potential_duplicates`.
 
         Returns:
-            A dictionary of file duplicates.
-            {
-               size1: [[dup1_path1, dup1_path2], [dup2_path1, ...], ...],
-               size2: ...,
-            }
+            dict[int, list[list[str]]]: A mapping of file size (int) to groups of duplicate files.
+            Example structure:
+                {
+                    1024: [
+                        ["path/to/dup1a", "path/to/dup1b"],
+                        ["path/to/dup2a", "path/to/dup2b", "path/to/dup2c"]
+                    ],
+                    2048: [...]
+                }
         """
-
         # 1. Hash potential duplicates
         with ProcessPoolExecutor() as executor:
             results = executor.map(
@@ -546,22 +546,18 @@ class DupHandler:
         Deletes the specified files, with optional dry-run functionality.
 
         Args:
-            files_to_delete (list[Path]): A list of file paths to be deleted.
+            files_to_delete (list[pathlib.Path]): A list of file paths to be deleted.
             dry_run (bool): If True, simulate deletions without actually deleting files.
 
         Returns:
-            tuple[list[Path], list[Path]]:
-                - A list of files successfully deleted.
-                - A list of files for which deletion failed.
-
-        Internal Exceptions Handling:
-            - FileNotFoundError: Caught if the file is already missing.
-            - PermissionError: Caught if the file cannot be deleted due to access restrictions.
-            - OSError: Caught for other system-related errors.
+            tuple[list[pathlib.Path], list[pathlib.Path]]
+                A two element tuple:
+                  1. The files successfully deleted (or that would have been in a dry run).
+                  2. The files that could not be deleted due to errors.
 
         Notes:
-            - These exceptions are not re-raised; instead, they are logged, and the offending
-              file paths are appended to the returned `failed_deletions` list.
+            - This method catches common errors (FileNotFoundError, PermissionError, OSError) instead
+              of raising them, adding the offending file paths to the failures list.
         """
         deleted_files = []
         failed_deletions = []
