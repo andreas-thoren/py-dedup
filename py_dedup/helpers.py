@@ -180,7 +180,7 @@ class DupFinder:
         }
         """
         # 1. Group files by size, delegates to _collect_files_by_size
-        size_map = {}  # size map will be modified in place by _collect_files_by_size
+        size_map: dict[int, list[str]] = {}  # size map will be modified in place by _collect_files_by_size
         for dir_path in self._dirs:
             self._collect_files_by_size(dir_path, size_map)
 
