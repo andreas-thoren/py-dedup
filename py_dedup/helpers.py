@@ -174,13 +174,13 @@ class DupFinder:
         4. Populate `self._duplicates` using the _filter_potential_duplicates method
         5. Convert actual duplicates to pathlib.Path instances
 
-        self_duplicates = {
+        self._duplicates = {
                size: [[dup1_path1, dup1_path2], [dup2_path1, ...], ...],
                ...
         }
         """
         # 1. Group files by size, delegates to _collect_files_by_size
-        size_map = {}
+        size_map = {}  # size map will be modified in place by _collect_files_by_size
         for dir_path in self._dirs:
             self._collect_files_by_size(dir_path, size_map)
 
@@ -189,16 +189,20 @@ class DupFinder:
         self._empty_files.extend(empty_files)
 
         # 3. Get potential duplicates = more than 1 file of same size
-        potential_duplicates = {
-            size_value: paths
-            for size_value, paths in size_map.items()
-            if len(paths) > 1
-        }
-        del size_map
+        potential_duplicates = []
+        potential_duplicates_sizes = []  # Will be needed to create duplicates dict
+        for file_size in tuple(size_map.keys()):
+            paths = size_map.pop(file_size)
+            if (num_paths := len(paths)) > 1:
+                potential_duplicates.extend(paths)
+                potential_duplicates_sizes.extend([file_size] * num_paths)
 
         # 4. Get duplicates from potential duplicate, delegates to _filter_potential_duplicates
-        duplicates = self._filter_potential_duplicates(potential_duplicates)
+        duplicates = self._filter_potential_duplicates(
+            potential_duplicates, potential_duplicates_sizes
+        )
         del potential_duplicates
+        del potential_duplicates_sizes
 
         # 5. Convert actual duplicates to pathlib.Path instances
         for size_value, size_duplicates in duplicates.items():
@@ -248,38 +252,52 @@ class DupFinder:
             print(f"Permission denied: {dir_path}")
 
     def _filter_potential_duplicates(
-        self, potential_duplicates: dict[int, list[str]]
+        self, potential_duplicates: list[str], potential_duplicates_sizes: list[int]
     ) -> dict[int, list[list[str]]]:
         """
-        Returns true duplicates as a dict mapping:
-        { file size: list of duplicate groups }
-            each group is a list of file paths.
+        Filters potential duplicates through hashing with md5. The actual hashing is
+        delegated to _get_file_hash. Multiprocessing is used for performance.
+
+        Args:
+            potential_duplicates (list[str]): A list of files that represents potential duplicates.
+            potential_duplicates_sizes (list[int]): A list of numbers representing the file sizes
+                of the potential_duplicates. The index positions in this list matches with
+                the corresponding files in potential_duplicates.
+
+        Returns:
+            A dictionary of file duplicates.
+            {
+               size1: [[dup1_path1, dup1_path2], [dup2_path1, ...], ...],
+               size2: ...,
+            }
         """
-        file_paths = []
-        file_sizez = []
 
-        for size_value, paths in potential_duplicates.items():
-            for path in paths:
-                file_paths.append(path)
-                file_sizez.append(size_value)
-
+        # 1. Hash potential duplicates
         with ProcessPoolExecutor() as executor:
             results = executor.map(
                 DupFinder._get_file_hash,
-                file_paths,
-                [self.chunk_size] * len(file_paths),
+                potential_duplicates,
+                [self.chunk_size] * len(potential_duplicates),
                 chunksize=32,
             )
 
-        hashed_potential_duplicates = {}
+        # 2. Create hash dict (hashed_potential_duplicates):
+        # {size1: {hash_val1: [path1, ...], hash_val2: [...]}, size2: {...}}
+        hashed_potential_duplicates: dict[int, dict[str, list[str]]] = {}
         for i, file_hash in enumerate(results):
             if file_hash is not None:
                 size_dict: dict = hashed_potential_duplicates.setdefault(
-                    file_sizez[i], {}
+                    potential_duplicates_sizes[i], {}
                 )
-                size_dict.setdefault(file_hash, []).append(file_paths[i])
+                size_dict.setdefault(file_hash, []).append(potential_duplicates[i])
 
-        duplicates = {}
+        # 3. Loop through hashed_potential_duplicates adding only actual duplicates
+        #       to the duplicates dict (only if > 1 file with same hash).
+        # {
+        #     size1: [[dup1_path1, dup1_path2], [dup2_path1, ...], ...],
+        #     size2: [[...], ...]
+        # }
+        duplicates: dict[int, list[list[str]]] = {}
         for size in tuple(hashed_potential_duplicates.keys()):
             hash_map = hashed_potential_duplicates.pop(size)
             size_duplicates = []
