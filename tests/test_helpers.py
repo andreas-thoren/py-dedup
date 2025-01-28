@@ -1,6 +1,6 @@
 import unittest
 import shutil
-from py_dedup.helpers import DupFinder, DupHandler
+from py_dedup.core import DupFinder, DupHandler
 from tests.global_test_vars import (
     TEST_DATA_DIR,
     TEST_DIR,

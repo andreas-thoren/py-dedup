@@ -1,5 +1,5 @@
 import pathlib
-from py_dedup.helpers import DupFinder
+from py_dedup.core import DupFinder
 from tests.utils_tests import timer
 from tests.global_test_vars import TEST_DIR, CMPR_DIR, MANUAL_TEST_DIR
 
