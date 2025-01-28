@@ -8,7 +8,7 @@ def time_dup_finder_methods(dirs):
     finder = DupFinder._for_testing(dirs=dirs)
 
     with timer("_collect_files_by_size"):
-        size_map = {}
+        size_map: dict[int, list[str]] = {}
         for dir_path in finder._dirs:
             finder._collect_files_by_size(dir_path, size_map)
 
@@ -18,23 +18,28 @@ def time_dup_finder_methods(dirs):
         finder._empty_files.extend(empty_files)
 
     with timer("get potential duplicates"):
-        potential_duplicates = {
-            size_value: paths
-            for size_value, paths in size_map.items()
-            if len(paths) > 1
-        }
+        potential_duplicates = []
+        potential_duplicates_sizes = []  # Will be needed to create duplicates dict
+        for file_size in tuple(size_map.keys()):
+            paths = size_map.pop(file_size)
+            if (num_paths := len(paths)) > 1:
+                potential_duplicates.extend(paths)
+                potential_duplicates_sizes.extend([file_size] * num_paths)
 
     with timer("find duplicates with md5 hashing"):
-        potential_duplicates = finder._filter_potential_duplicates(potential_duplicates)
+        duplicates = finder._filter_potential_duplicates(
+            potential_duplicates, potential_duplicates_sizes
+        )
+        del potential_duplicates
+        del potential_duplicates_sizes
 
     with timer("convert duplicates to pathlib.Path instances"):
-        for size_value, size_duplicates in potential_duplicates.items():
+        for size_value, size_duplicates in duplicates.items():
             finder._duplicates[size_value] = [
                 [pathlib.Path(path) for path in path_list]
                 for path_list in size_duplicates
             ]
-
-
+    
 def temp_test():
     """
     Ensure the dirs property reflects what we passed in.
