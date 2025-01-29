@@ -74,23 +74,27 @@ Below is an example of how to use `py-dedup` to:
 
 ```python
 import pathlib
-from py_dedup.helpers import DupFinder, DupHandler
+from py_dedup import DupFinder, DupHandler
 
 # 1. Create a DupFinder instance, specifying one or more directories.
 finder = DupFinder(
     dirs=[r"/path/to/dir1", r"/path/to/dir2"],
     chunk_size=8192,  # Optional. Default is 8192 bytes per chunk for hashing.
-    sort_alphabetically=True  # Optional. Defaults to True.
 )
 
-# 2. Print or inspect duplicates:
+# 2. Sort and get duplicates:
+finder.sort_duplicates_alphabetically()
+duplicates: list[tuple[int, list[list[pathlib.Path]]]] = finder.get_size_sorted_duplicates()
+# do something with duplicates...
+
+# 3. Print duplicates and empty files:
 finder.print_duplicates()  # Prints duplicates (if any) in descending order by size
 print("Empty files detected:", finder.empty_files)
 
-# 3. Create a DupHandler to manage deletions.
+# 4. Create a DupHandler to manage deletions.
 handler = DupHandler(finder)
 
-# --- DRY-RUN deletion ---
+# 5. --- DRY-RUN deletion ---
 # This won't delete anything; it only shows which files WOULD be deleted.
 deleted_files_dry_run, failed_deletions_dry_run = handler.remove_dir_duplicates(
     dirs=[r"/path/to/dir1"],  # The directory in which duplicates should be removed
@@ -100,7 +104,7 @@ deleted_files_dry_run, failed_deletions_dry_run = handler.remove_dir_duplicates(
 print("Dry-run deleted files:", deleted_files_dry_run)
 print("Dry-run failed deletions:", failed_deletions_dry_run)
 
-# 4. If satisfied with the dry-run results, you can do the actual deletion:
+# 6. If satisfied with the dry-run results, you can do the actual deletion:
 deleted_files, failed_deletions = handler.remove_dir_duplicates(
     dirs=[r"/path/to/dir1"],
     dry_run=False,  # Now set to False for actual deletion
@@ -129,27 +133,24 @@ py-dedup/
 │
 ├─ py_dedup/
 │   ├─ __init__.py
-│   ├─ helpers.py # Contains DirectoryValidator, DupFinder, DupHandler
-│   ├─ core.py    # (planned)
-│   ├─ args.py    # (planned)
-│   └─ utils.py   # (planned)
+│   ├─ core.py # Contains DirectoryValidator, DupFinder, DupHandler
+│   ├─ cli.py    # CLI interface (work in progress)
 │
 ├─ tests/
 │   └─ ...        # Unit tests
 │
 ├─ pyproject.toml
-└─ README.md      # This file
-├─ LICENCE
+├─ LICENSE
+├─ README.md      # This file
+├─ manual_tests.py # Used for manual testing. Not necessary for end user.
 ```
 
 ---
 
 ## TODO
 
+- [ ] Write cli.py with main function for cli interaction. Will act as entry point.
 - [ ] Add function that iterates through duplicates and allows you to delete selected ones
-- [ ] Write core.py with main function for cli interaction
-- [ ] Write args.py for cli argument handling
-- [ ] Write utils.py with functions that calls DupFinder and DupHandler under the hood.
 - [ ] Write method for removing redundant dirs ex "parentdir/" and "parentdir/childdir/" could be reduced to only parentdir.
 
 ---

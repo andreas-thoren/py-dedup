@@ -39,7 +39,8 @@ def time_dup_finder_methods(dirs):
                 [pathlib.Path(path) for path in path_list]
                 for path_list in size_duplicates
             ]
-    
+
+
 def temp_test():
     """
     Ensure the dirs property reflects what we passed in.
