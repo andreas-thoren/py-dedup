@@ -1,5 +1,6 @@
 import pathlib
 from py_dedup import DupFinder
+from py_dedup.cli import main
 from tests.utils_tests import timer
 from tests.global_test_vars import TEST_DIR, CMPR_DIR, MANUAL_TEST_DIR
 
@@ -41,6 +42,11 @@ def time_dup_finder_methods(dirs):
             ]
 
 
+def test_main():
+    args = ["tests/test_data/test_dir", "tests/test_data/cmpr_dir"]
+    main(args)
+
+
 def temp_test():
     """
     Ensure the dirs property reflects what we passed in.
@@ -56,4 +62,5 @@ def temp_test():
 
 
 if __name__ == "__main__":
-    time_dup_finder_methods([MANUAL_TEST_DIR])
+    # time_dup_finder_methods([MANUAL_TEST_DIR])
+    test_main()
