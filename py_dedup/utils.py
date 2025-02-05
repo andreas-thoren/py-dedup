@@ -6,7 +6,7 @@ import tempfile
 import hashlib
 
 
-def get_tmp_filepath() -> pathlib.Path:
+def get_tmp_filepath(prefix: str = "", suffix: str = "") -> pathlib.Path:
     machine_id = platform.node()
     session_id = os.getpid()
     username = getpass.getuser()
@@ -14,5 +14,5 @@ def get_tmp_filepath() -> pathlib.Path:
     hashed_id = hashlib.sha256(unique_id.encode()).hexdigest()[:16]
 
     temp_dir = pathlib.Path(tempfile.gettempdir())
-    temp_file_name = f"{hashed_id}_dupfinder.pkl"
+    temp_file_name = f"{prefix}{hashed_id}{suffix}"
     return temp_dir / temp_file_name
