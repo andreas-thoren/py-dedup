@@ -11,18 +11,23 @@ def get_temp_dir_path() -> pathlib.Path:
     user_hash = hashlib.sha256(username.encode()).hexdigest()[:16]
     return parent_dir / f"py_dedup_{user_hash}"
 
+
 def create_tempfile() -> pathlib.Path:
     temp_dir = get_temp_dir_path()
     if not temp_dir.exists():
         temp_dir.mkdir(mode=0o700, exist_ok=False)
 
     session_id = str(os.getpid())
-    fd, file_path = tempfile.mkstemp(prefix=f"{session_id}_", dir=temp_dir, suffix=".pkl")
+    fd, file_path = tempfile.mkstemp(
+        prefix=f"{session_id}_", dir=temp_dir, suffix=".pkl"
+    )
     os.close(fd)
     return pathlib.Path(file_path)
 
 
-def cleanup_user_tempfiles(dry_run: bool = False) -> tuple[list[pathlib.Path], list[pathlib.Path]]:
+def cleanup_user_tempfiles(
+    dry_run: bool = False,
+) -> tuple[list[pathlib.Path], list[pathlib.Path]]:
     temp_dir = get_temp_dir_path()
     if not temp_dir.exists():
         return [], []
