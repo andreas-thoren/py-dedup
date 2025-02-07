@@ -14,6 +14,13 @@ def get_user_machine_specific_prefix() -> str:
     ]
     return user_machine_hash
 
+def create_tempfolder():
+    parent_dir = pathlib.Path(tempfile.gettempdir())
+    username = getpass.getuser() or "unknown_user"
+    user_hash = hashlib.sha256(f"{username.encode()}").hexdigest()[:16]
+    new_dir = parent_dir / f"py_dedup_{user_hash}"
+    new_dir.mkdir(mod=0o700, exist_ok=False)
+    return new_dir
 
 def create_tempfile(
     dir_path: str | pathlib.Path = None, suffix: str = ""
