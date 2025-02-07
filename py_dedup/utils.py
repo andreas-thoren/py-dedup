@@ -1,72 +1,51 @@
 import getpass
 import os
-import platform
 import pathlib
 import tempfile
 import hashlib
 
 
-def get_user_machine_specific_prefix() -> str:
-    machine_id = platform.node() or "unknown_machine"
-    username = getpass.getuser() or "unknown_user"
-    user_machine_hash = hashlib.sha256(f"{machine_id}{username}".encode()).hexdigest()[
-        :16
-    ]
-    return user_machine_hash
-
-def create_tempfolder():
+def get_temp_dir_path() -> pathlib.Path:
     parent_dir = pathlib.Path(tempfile.gettempdir())
     username = getpass.getuser() or "unknown_user"
-    user_hash = hashlib.sha256(f"{username.encode()}").hexdigest()[:16]
-    new_dir = parent_dir / f"py_dedup_{user_hash}"
-    new_dir.mkdir(mod=0o700, exist_ok=False)
-    return new_dir
+    user_hash = hashlib.sha256(username.encode()).hexdigest()[:16]
+    return parent_dir / f"py_dedup_{user_hash}"
 
-def create_tempfile(
-    dir_path: str | pathlib.Path = None, suffix: str = ""
-) -> pathlib.Path:
+def create_tempfile() -> pathlib.Path:
+    temp_dir = get_temp_dir_path()
+    if not temp_dir.exists():
+        temp_dir.mkdir(mode=0o700, exist_ok=False)
 
-    if dir_path is None:
-        dir_path = pathlib.Path(tempfile.gettempdir())
-    else:
-        dir_path = pathlib.Path(dir_path)
-
-    session_id = os.getpid()
-    prefix = f"{get_user_machine_specific_prefix()}_{session_id}"
-    fd, file_path = tempfile.mkstemp(prefix=prefix, dir=dir_path, suffix=suffix)
+    session_id = str(os.getpid())
+    fd, file_path = tempfile.mkstemp(prefix=f"{session_id}_", dir=temp_dir, suffix=".pkl")
     os.close(fd)
     return pathlib.Path(file_path)
 
 
-def cleanup_user_machine_specific_tempfiles(
-    dir_path: str | pathlib.Path = None, dry_run: bool = False
-) -> tuple[list[pathlib.Path], list[pathlib.Path]]:
+def cleanup_user_tempfiles(dry_run: bool = False) -> tuple[list[pathlib.Path], list[pathlib.Path]]:
+    temp_dir = get_temp_dir_path()
+    if not temp_dir.exists():
+        return [], []
 
-    if dir_path is None:
-        dir_path = pathlib.Path(tempfile.gettempdir())
-    else:
-        dir_path = pathlib.Path(dir_path)
-
-    if not dir_path.exists():
-        raise FileNotFoundError(f"Directory does not exist: {dir_path}")
-
-    user_machine_prefix = get_user_machine_specific_prefix()
-    temp_files = dir_path.glob(f"{user_machine_prefix}_*")
     deleted_paths, error_paths = [], []
 
-    for temp_file in temp_files:
+    for path in temp_dir.iterdir():
+
+        if not path.is_file() or path.is_symlink():
+            continue
+
         try:
             if not dry_run:
-                temp_file.unlink()
-            deleted_paths.append(temp_file)
+                path.unlink()
+            deleted_paths.append(path)
         except FileNotFoundError:
-            error_paths.append(temp_file)
-            print(f"File already deleted: {temp_file}")
+            error_paths.append(path)
+            print(f"File already deleted: {path}")
         except PermissionError:
-            error_paths.append(temp_file)
-            print(f"Permission denied: {temp_file}")
+            error_paths.append(path)
+            print(f"Permission denied: {path}")
         except OSError as e:
-            error_paths.append(temp_file)
-            print(f"Error deleting {temp_file}: {e}")
+            error_paths.append(path)
+            print(f"Error deleting {path}: {e}")
 
     return deleted_paths, error_paths
