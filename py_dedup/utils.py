@@ -1,6 +1,7 @@
 import getpass
 import os
 import pathlib
+import pickle
 import tempfile
 import hashlib
 
@@ -54,3 +55,17 @@ def cleanup_user_tempfiles(
             print(f"Error deleting {path}: {e}")
 
     return deleted_paths, error_paths
+
+
+def pickle_object(obj: object, path: pathlib.Path) -> pathlib.Path:
+    with path.open("wb") as f:
+        pickle.dump(obj, f)
+
+    return path
+
+
+def unpickle_object(path: pathlib.Path) -> object:
+    with path.open("rb") as f:
+        obj = pickle.load(f)
+
+    return obj
