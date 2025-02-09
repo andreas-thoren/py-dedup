@@ -45,8 +45,7 @@ def get_current_tempfile(threshold: timedelta | None = None) -> pathlib.Path | N
 
     pattern = f"{get_tempfile_prefix()}*{TMP_FILE_SUFFIX}"
     tmp_files_list = [
-        (tmp_file, tmp_file.stat().st_mtime)
-        for tmp_file in tmp_files_dir.glob(pattern)
+        (tmp_file, tmp_file.stat().st_mtime) for tmp_file in tmp_files_dir.glob(pattern)
     ]
 
     if not tmp_files_list:
@@ -65,7 +64,7 @@ def get_current_tempfile(threshold: timedelta | None = None) -> pathlib.Path | N
     if tmp_file is None or len(tmp_files_list) > 1:
         print(
             f"There are old tempfiles in dir: {tmp_files_dir}"
-            + "Please consider cleaning them up" # TODO rephrase after creatinig cli purge-temfiles
+            + "Please consider cleaning them up"  # TODO rephrase after creatinig cli purge-temfiles
         )
 
     # Return current tempfile
