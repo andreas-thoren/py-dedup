@@ -64,12 +64,11 @@ def temp_test():
 
 def test_cache():
     finder = DupFinder(dirs=[TEST_DIR, CMPR_DIR])
-
-    cache_dict, returned_path = update_cache(finder)
-    path = get_current_tempfile()
+    returned_path = pickle_dupfinder(finder)
+    path = get_current_tempfile(finder.dirs)
     assert returned_path == path
 
-    finder2 = read_cache(path, finder.dirs)
+    finder2 = unpickle_dupfinder(path)
     assert finder.dirs == finder2.dirs
     assert finder.duplicates == finder2.duplicates
     # print(f"\ntype: {type(finder2)}")
@@ -78,5 +77,4 @@ def test_cache():
 
 
 if __name__ == "__main__":
-    # time_dup_finder_methods([MANUAL_TEST_DIR])
     test_cache()

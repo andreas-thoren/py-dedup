@@ -6,7 +6,7 @@ import tempfile
 import hashlib
 from datetime import datetime, timedelta
 from typing import Iterable
-from .core import DirectoryValidator, DupFinder
+from .core import DupFinder, DirectoryValidator
 
 
 TMP_FILE_SUFFIX = ".pkl"
@@ -19,25 +19,20 @@ def get_temp_dir_path() -> pathlib.Path:
     return parent_dir / f"py_dedup_{user_hash}"
 
 
-def get_tempfile_prefix(finder: DupFinder) -> str:
-    session_id = os.environ.get("PY_DEDUP_SESSION_ID")  # Use env var if set
-    if session_id is None:
-        session_id = str(os.getpid())  # Fallback: use first process ID as session ID
-        os.environ["PY_DEDUP_SESSION_ID"] = session_id  # Store in env for consistency
-
-    sorted_dirs = sorted(str(path) for path in finder.dirs)
+def get_tempfile_prefix(dirs: Iterable[pathlib.Path]) -> str:
+    resolved_dirs = DirectoryValidator.get_dir_set(dirs)
+    sorted_dirs = sorted(str(path) for path in resolved_dirs)
     dirs_string = "\n".join(sorted_dirs)
+    prefix_hash = hashlib.sha256(dirs_string.encode()).hexdigest()[:16]
+    return prefix_hash
 
-    prefix_string = f"{session_id}_{dirs_string}"
-    return hashlib.sha256(prefix_string.encode()).hexdigest()[:16]
 
-
-def create_tempfile() -> pathlib.Path:
+def create_tempfile(dirs: Iterable[pathlib.Path]) -> pathlib.Path:
     temp_dir = get_temp_dir_path()
     if not temp_dir.exists():
         temp_dir.mkdir(mode=0o700, exist_ok=False)
 
-    prefix = get_tempfile_prefix()
+    prefix = get_tempfile_prefix(dirs)
     fd, file_path = tempfile.mkstemp(
         prefix=prefix, dir=temp_dir, suffix=TMP_FILE_SUFFIX
     )
@@ -45,13 +40,15 @@ def create_tempfile() -> pathlib.Path:
     return pathlib.Path(file_path)
 
 
-def get_current_tempfile(threshold: timedelta | None = None) -> pathlib.Path | None:
+def get_current_tempfile(
+    dirs: Iterable[pathlib.Path], threshold: timedelta | None = None
+) -> pathlib.Path | None:
     tmp_files_dir = get_temp_dir_path()
 
     if not tmp_files_dir.exists():
         return None
 
-    pattern = f"{get_tempfile_prefix()}*{TMP_FILE_SUFFIX}"
+    pattern = f"{get_tempfile_prefix(dirs)}*{TMP_FILE_SUFFIX}"
     tmp_files_list = [
         (tmp_file, tmp_file.stat().st_mtime) for tmp_file in tmp_files_dir.glob(pattern)
     ]
@@ -104,45 +101,25 @@ def cleanup_user_tempfiles(
     return deleted_paths, error_paths
 
 
-def read_cache(path: pathlib.Path, dirs: Iterable) -> DupFinder | None:
-    dir_set = DirectoryValidator.get_dir_set(dirs)
-    cache_dict = unpickle_object(path) or {}
-    # If there is a cached dupfinder for the same operation return it otherwise None
-    return cache_dict.get(frozenset(dir_set), None)
-
-
-def update_cache(
+def pickle_dupfinder(
     finder: DupFinder, path: pathlib.Path | None = None
-) -> tuple[dict[frozenset[pathlib.Path], DupFinder], pathlib.Path]:
-
+) -> pathlib.Path:
     if path is None:
-        cache_dict = {}
-    else:
-        cache_dict = unpickle_object(path) or {}
-
-    # finder.dirs is a property that returns frozenset of finder._dirs
-    cache_dict[finder.dirs] = finder
-    cache_path = pickle_object(cache_dict, path)
-    return cache_dict, cache_path
-
-
-def pickle_object(obj: object, path: pathlib.Path | None = None) -> pathlib.Path:
-    if path is None:
-        path = create_tempfile()
+        path = create_tempfile(finder.dirs)
 
     with path.open("wb") as f:
-        pickle.dump(obj, f)
+        pickle.dump(finder, f)
 
     return path
 
 
-def unpickle_object(
+def unpickle_dupfinder(
     path: pathlib.Path,
-) -> dict[frozenset[pathlib.Path], DupFinder] | None:
+) -> DupFinder | None:
     try:
         with path.open("rb") as f:
-            obj = pickle.load(f)
+            finder = pickle.load(f)
     except (FileNotFoundError, EOFError):
         return None
 
-    return obj
+    return finder
