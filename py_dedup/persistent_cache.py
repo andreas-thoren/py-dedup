@@ -19,9 +19,17 @@ def get_temp_dir_path() -> pathlib.Path:
     return parent_dir / f"py_dedup_{user_hash}"
 
 
-def get_tempfile_prefix() -> str:
-    session_id = str(os.getpid())
-    return f"{session_id}_"
+def get_tempfile_prefix(finder: DupFinder) -> str:
+    session_id = os.environ.get("PY_DEDUP_SESSION_ID")  # Use env var if set
+    if session_id is None:
+        session_id = str(os.getpid())  # Fallback: use first process ID as session ID
+        os.environ["PY_DEDUP_SESSION_ID"] = session_id  # Store in env for consistency
+
+    sorted_dirs = sorted(str(path) for path in finder.dirs)
+    dirs_string = "\n".join(sorted_dirs)
+
+    prefix_string = f"{session_id}_{dirs_string}"
+    return hashlib.sha256(prefix_string.encode()).hexdigest()[:16]
 
 
 def create_tempfile() -> pathlib.Path:
@@ -60,12 +68,6 @@ def get_current_tempfile(threshold: timedelta | None = None) -> pathlib.Path | N
         tmp_file = None  # Return None if the file is older than 1 hour
     else:
         tmp_file = tmp_files_list[0][0]
-
-    if tmp_file is None or len(tmp_files_list) > 1:
-        print(
-            f"There are old tempfiles in dir: {tmp_files_dir}"
-            + "Please consider cleaning them up"  # TODO rephrase after creatinig cli purge-temfiles
-        )
 
     # Return current tempfile
     return tmp_file
