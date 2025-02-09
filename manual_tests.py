@@ -1,6 +1,7 @@
 import pathlib
 from py_dedup import DupFinder
 from py_dedup.cli import main
+from py_dedup.persistent_cache import *
 from tests.utils_tests import timer
 from tests.global_test_vars import TEST_DIR, CMPR_DIR, MANUAL_TEST_DIR
 
@@ -61,6 +62,21 @@ def temp_test():
     assert CMPR_DIR.resolve() in result_dirs
 
 
+def test_cache():
+    finder = DupFinder(dirs=[TEST_DIR, CMPR_DIR])
+
+    cache_dict, returned_path = update_cache(finder)
+    path = get_current_tempfile()
+    assert returned_path == path
+
+    finder2 = read_cache(path, finder.dirs)
+    assert finder.dirs == finder2.dirs
+    assert finder.duplicates == finder2.duplicates
+    # print(f"\ntype: {type(finder2)}")
+    # print(f"dirs: {finder2.dirs}")
+    # print(f"duplicates: {finder2.duplicates}")
+
+
 if __name__ == "__main__":
     # time_dup_finder_methods([MANUAL_TEST_DIR])
-    test_main()
+    test_cache()
