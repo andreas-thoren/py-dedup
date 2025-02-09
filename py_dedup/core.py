@@ -51,12 +51,12 @@ class DirectoryValidator:
     """
 
     @staticmethod
-    def get_dir_set(dirs: list[pathlib.Path | str]) -> set[pathlib.Path]:
+    def get_dir_set(dirs: Iterable[pathlib.Path | str]) -> set[pathlib.Path]:
         """
         Validates and resolves a list of directories into a set of Path objects.
 
         Args:
-            dirs (list[Path | str]): A list of directory paths.
+            dirs (Iterable[Path | str]): An iterable of directory paths.
 
         Returns:
             set[Path]: A set of resolved directory Path objects.

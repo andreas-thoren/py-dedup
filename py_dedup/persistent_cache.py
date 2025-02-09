@@ -4,6 +4,8 @@ import pathlib
 import pickle
 import tempfile
 import hashlib
+from typing import Iterable
+from .core import DirectoryValidator, DupFinder
 
 
 def get_temp_dir_path() -> pathlib.Path:
@@ -57,15 +59,45 @@ def cleanup_user_tempfiles(
     return deleted_paths, error_paths
 
 
-def pickle_object(obj: object, path: pathlib.Path) -> pathlib.Path:
+def read_cache(path: pathlib.Path, dirs: Iterable) -> DupFinder | None:
+    dir_set = DirectoryValidator.get_dir_set(dirs)
+    cache_dict = unpickle_object(path) or {}
+    # If there is a cached dupfinder for the same operation return it otherwise None
+    return cache_dict.get(frozenset(dir_set), None)
+
+
+def update_cache(
+    finder: DupFinder, path: pathlib.Path | None = None
+) -> tuple[dict[frozenset[pathlib.Path], DupFinder], pathlib.Path]:
+    frozen_dir_set = frozenset(finder.dirs)
+
+    if path is None:
+        cache_dict = {}
+    else:
+        cache_dict = unpickle_object(path) or {}
+
+    cache_dict[frozen_dir_set] = finder
+    cache_path = pickle_object(cache_dict, path)
+    return cache_dict, cache_path
+
+
+def pickle_object(obj: object, path: pathlib.Path | None = None) -> pathlib.Path:
+    if path is None:
+        path = create_tempfile()
+
     with path.open("wb") as f:
         pickle.dump(obj, f)
 
     return path
 
 
-def unpickle_object(path: pathlib.Path) -> object:
-    with path.open("rb") as f:
-        obj = pickle.load(f)
+def unpickle_object(
+    path: pathlib.Path,
+) -> dict[frozenset[pathlib.Path], DupFinder] | None:
+    try:
+        with path.open("rb") as f:
+            obj = pickle.load(f)
+    except (FileNotFoundError, EOFError):
+        return None
 
     return obj
