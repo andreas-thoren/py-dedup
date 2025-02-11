@@ -71,15 +71,16 @@ def get_current_tempfile(
 
 
 def cleanup_user_tempfiles(
-    dry_run: bool = False,
+    dry_run: bool = False, pattern: str | None = None
 ) -> tuple[list[pathlib.Path], list[pathlib.Path]]:
     temp_dir = get_temp_dir_path()
     if not temp_dir.exists():
         return [], []
 
     deleted_paths, error_paths = [], []
+    dir_iterator = temp_dir.iterdir() if pattern is None else temp_dir.glob(pattern)
 
-    for path in temp_dir.iterdir():
+    for path in dir_iterator:
 
         if not path.is_file() or path.is_symlink():
             continue

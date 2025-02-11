@@ -6,10 +6,12 @@ from datetime import timedelta
 from .core import DupFinder, DupHandler
 from .persistent_cache import (
     get_current_tempfile,
+    get_tempfile_prefix,
     cleanup_user_tempfiles,
     create_tempfile,
     unpickle_dupfinder,
     pickle_dupfinder,
+    TMP_FILE_SUFFIX
 )
 
 
@@ -93,8 +95,9 @@ def delete_duplicates(dirs: list[str], delete_dirs: list[str], dry_run: bool) ->
         print(f"Error deleting: {error_file}")
 
     # If actual file deletions took place delete cache (not current any longer)
-    if tmp_file and deleted_files and not dry_run:
-        tmp_file.unlink(missing_ok=True)
+    if deleted_files and not dry_run:
+        pattern = f"{get_tempfile_prefix(dirs)}*{TMP_FILE_SUFFIX}"
+        cleanup_user_tempfiles(pattern=pattern)
 
 
 def clear_cache() -> None:
