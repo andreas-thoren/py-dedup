@@ -11,7 +11,7 @@ from .persistent_cache import (
     create_tempfile,
     unpickle_dupfinder,
     pickle_dupfinder,
-    TMP_FILE_SUFFIX
+    TMP_FILE_SUFFIX,
 )
 
 
