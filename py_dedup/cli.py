@@ -2,12 +2,26 @@
 
 import sys
 import argparse
-from .core import DupFinder
+from .core import DupFinder, DupHandler
+from .persistent_cache import (
+    get_current_tempfile,
+    cleanup_user_tempfiles,
+    create_tempfile,
+    unpickle_dupfinder,
+    pickle_dupfinder,
+)
 
 
 def main(arguments: list[str] | None = None) -> None:
     """main function of the cli interface"""
-    args = parse_args(arguments if arguments is not None else sys.argv[1:])
+    if arguments is None:
+        arguments = sys.argv[1:]
+
+    if not arguments:  # Handle case where no arguments are provided
+        print("No command provided. Use --help for usage details.")
+        sys.exit(1)
+
+    args = parse_args(arguments)
 
     if args.command == "find":
         find_duplicates(args.directories)
@@ -24,14 +38,42 @@ def find_duplicates(dirs: list[str]) -> None:
     finder.sort_duplicates_alphabetically()
     finder.print_duplicates()
 
+    tmp_file = get_current_tempfile(dirs=dirs) or create_tempfile(dirs=dirs)
+    pickle_dupfinder(finder=finder, path=tmp_file)
+
 
 def delete_duplicates(dirs: list[str], delete_dirs: list[str], dry_run: bool) -> None:
-    print("TODO")
-    print(f"Called with dirs: {dirs}, delete_dirs: {delete_dirs}, dry_run: {dry_run}")
+    # Attempt to retrieve DupFinder instance from cache
+    tmp_file = get_current_tempfile(dirs)
+    finder = unpickle_dupfinder(tmp_file) if tmp_file else None
+
+    # If unpickling failed or no cache exists, create a new instance
+    if finder is None:
+        finder = DupFinder(dirs=dirs)
+        tmp_file = tmp_file or create_tempfile(dirs=dirs)
+        pickle_dupfinder(finder=finder, path=tmp_file)
+
+    # Instantiate DupHandler and perform deletions (if not dry_run=True)
+    handler = DupHandler(finder=finder)
+    deleted_files, error_files = handler.remove_dir_duplicates(
+        dirs=delete_dirs, dry_run=dry_run
+    )
+
+    # Present result for user
+    delete_msg = "Would have deleted (dry_run=True)" if dry_run else "Deleted"
+    for deleted_file in deleted_files:
+        print(f"{delete_msg}: {deleted_file}")
+
+    for error_file in error_files:
+        print(f"Error deleting: {error_file}")
+
+    # If actual file deletions took place delete cache (not current any longer)
+    if tmp_file and deleted_files and not dry_run:
+        tmp_file.unlink(missing_ok=True)
 
 
 def clear_cache() -> None:
-    print("TODO")
+    cleanup_user_tempfiles()
 
 
 def parse_args(arguments: list[str]) -> argparse.Namespace:
