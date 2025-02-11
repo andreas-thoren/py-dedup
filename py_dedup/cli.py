@@ -2,6 +2,7 @@
 
 import sys
 import argparse
+from datetime import timedelta
 from .core import DupFinder, DupHandler
 from .persistent_cache import (
     get_current_tempfile,
@@ -23,23 +24,51 @@ def main(arguments: list[str] | None = None) -> None:
 
     args = parse_args(arguments)
 
-    if args.command == "find":
-        find_duplicates(args.directories)
-    elif args.command == "delete":
-        delete_duplicates(args.directories, args.delete_dirs, args.dry_run)
-    elif args.command == "clear-cache":
-        clear_cache()
-    else:
-        raise ValueError(f"py-dedup called with erroneous command: {args.command}")
+    commands = {
+        "find": lambda: find_duplicates(args.directories),
+        "show-duplicates": lambda: show_duplicates(args.directories, args.threshold),
+        "delete": lambda: delete_duplicates(
+            args.directories, args.delete_dirs, args.dry_run
+        ),
+        "clear-cache": clear_cache,
+    }
+
+    try:
+        commands[args.command]()
+    except KeyError as exc:
+        raise ValueError(
+            f"py-dedup called with erroneous command: {args.command}"
+        ) from exc
 
 
 def find_duplicates(dirs: list[str]) -> None:
-    finder = DupFinder(dirs=dirs)
+    finder = DupFinder(dirs)
     finder.sort_duplicates_alphabetically()
     finder.print_duplicates()
 
-    tmp_file = get_current_tempfile(dirs=dirs) or create_tempfile(dirs=dirs)
+    tmp_file = get_current_tempfile(dirs) or create_tempfile(dirs)
     pickle_dupfinder(finder=finder, path=tmp_file)
+
+
+def show_duplicates(dirs: list[str], threshold: int) -> None:
+    threshold = timedelta(minutes=threshold)
+    tmp_file = get_current_tempfile(dirs, threshold)
+    if tmp_file is None:
+        print(
+            f"No cached result for dirs: {dirs} exist within threshold. Use py-dedup find"
+        )
+        return
+
+    finder = unpickle_dupfinder(tmp_file)
+    if finder is None:
+        print(f"Error reading cache for dirs: {dirs}. Use py-dedup find instead!")
+        return
+
+    if not finder.duplicates:
+        print(f"No duplicates exist in dirs: {dirs}")
+
+    finder.sort_duplicates_alphabetically()
+    finder.print_duplicates()
 
 
 def delete_duplicates(dirs: list[str], delete_dirs: list[str], dry_run: bool) -> None:
@@ -49,8 +78,8 @@ def delete_duplicates(dirs: list[str], delete_dirs: list[str], dry_run: bool) ->
 
     # If unpickling failed or no cache exists, create a new instance
     if finder is None:
-        finder = DupFinder(dirs=dirs)
-        tmp_file = tmp_file or create_tempfile(dirs=dirs)
+        finder = DupFinder(dirs)
+        tmp_file = tmp_file or create_tempfile(dirs)
         pickle_dupfinder(finder=finder, path=tmp_file)
 
     # Instantiate DupHandler and perform deletions (if not dry_run=True)
@@ -73,7 +102,19 @@ def delete_duplicates(dirs: list[str], delete_dirs: list[str], dry_run: bool) ->
 
 
 def clear_cache() -> None:
-    cleanup_user_tempfiles()
+    deleted_files, error_files = cleanup_user_tempfiles()
+
+    if deleted_files:
+        print(
+            "Deleted the following temp files:\n"
+            + "\n".join(str(path) for path in deleted_files)
+        )
+
+    if error_files:
+        print(
+            "Error deleting the following temp files:\n"
+            + "\n".join(str(path) for path in error_files)
+        )
 
 
 def parse_args(arguments: list[str]) -> argparse.Namespace:
@@ -90,6 +131,22 @@ def parse_args(arguments: list[str]) -> argparse.Namespace:
     )
     find_parser.add_argument(
         "directories", nargs="+", help="Directories to scan for duplicates."
+    )
+
+    # Subparser for showing cached duplicates
+    show_parser = subparsers.add_parser(
+        "show-duplicates", help="Show cached duplicate results if available."
+    )
+    show_parser.add_argument(
+        "directories",
+        nargs="+",
+        help="Directories to show cached result for duplicates.",
+    )
+    show_parser.add_argument(
+        "--threshold",
+        type=int,
+        default=1440,
+        help="Threshold (in minutes) to consider cache valid. Default: 1440 (1 day).",
     )
 
     # Subparser for deleting duplicates
