@@ -19,7 +19,7 @@ def get_temp_dir_path() -> pathlib.Path:
     return parent_dir / f"py_dedup_{user_hash}"
 
 
-def get_tempfile_prefix(dirs: Iterable[pathlib.Path]) -> str:
+def get_tempfile_prefix(dirs: Iterable[pathlib.Path | str]) -> str:
     resolved_dirs = DirectoryValidator.get_dir_set(dirs)
     sorted_dirs = sorted(str(path) for path in resolved_dirs)
     dirs_string = "\n".join(sorted_dirs)
@@ -27,7 +27,7 @@ def get_tempfile_prefix(dirs: Iterable[pathlib.Path]) -> str:
     return prefix_hash
 
 
-def create_tempfile(dirs: Iterable[pathlib.Path]) -> pathlib.Path:
+def create_tempfile(dirs: Iterable[pathlib.Path | str]) -> pathlib.Path:
     temp_dir = get_temp_dir_path()
     if not temp_dir.exists():
         temp_dir.mkdir(mode=0o700, exist_ok=False)
@@ -41,7 +41,7 @@ def create_tempfile(dirs: Iterable[pathlib.Path]) -> pathlib.Path:
 
 
 def get_current_tempfile(
-    dirs: Iterable[pathlib.Path], threshold: timedelta | None = None
+    dirs: Iterable[pathlib.Path | str], threshold: timedelta | None = None
 ) -> pathlib.Path | None:
     tmp_files_dir = get_temp_dir_path()
 
