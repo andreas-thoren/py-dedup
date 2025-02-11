@@ -149,9 +149,12 @@ py-dedup/
 
 ## TODO
 
-- [ ] Write cli.py with main function for cli interaction. Will act as entry point.
-- [ ] Add function that iterates through duplicates and allows you to delete selected ones
+- [ ] Add cli usage examples to README.md (cli branch)
+- [ ] Add docstrings to cli.py and persistent_cache.py (cli branch)
+- [ ] Change datastructure of DupFinder to contain two dictionaries. One { "hash_value": dup_instance(file_size, set(file_paths)) }. The other { file_path: "hash_value" }. This so you can modify DupFinder instances easier.
+- [ ] Write more tests for cli.py and persistent_cache.py 
 - [ ] Write method for removing redundant dirs ex "parentdir/" and "parentdir/childdir/" could be reduced to only parentdir.
+- [ ] Add gui.py
 
 ---
 
