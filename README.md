@@ -9,8 +9,10 @@ A Python utility to **find and handle duplicate files** across one or more direc
 - **Find duplicate files** by size and hash checking.
 - **List empty files** (0 bytes).
 - **Optionally delete** duplicates in specified directories.
+- **Persistent caching** to store duplicate results and avoid unnecessary rescans.
+- **Command-line interface (CLI)** for easy use.
 - **Dry-run mode** for safe testing before deletion.
-- Customizable chunk size and sorting.
+- **Customizable chunk size** and sorting.
 
 ---
 
@@ -65,51 +67,85 @@ If you prefer to have a local copy of the repository, follow these steps:
 
 ## Usage
 
-Below is an example of how to use `py-dedup` to:
-1. **Find duplicates** in one or more directories.
-2. **Perform a dry-run** of deletions to see what would happen.
-3. **Actually delete** duplicates for real.
+### CLI Usage
 
-### Example
+`py-dedup` provides a command-line interface (CLI) for easy use. Below are examples of common operations:
+
+#### Find duplicate files
+
+```bash
+py-dedup find /path/to/directory1 /path/to/directory2
+```
+
+This scans the specified directories for duplicate files and displays the results. Results are cached for faster retrieval later.
+
+#### Show cached duplicate results
+
+```bash
+py-dedup show-duplicates /path/to/directory1 /path/to/directory2 --threshold 60
+```
+
+This retrieves previously scanned duplicate results if they are less than 60 minutes old.
+
+#### Delete duplicate files (dry run)
+
+```bash
+py-dedup delete /path/to/directory1 --delete-dirs /path/to/directory2 -n
+```
+
+This simulates deleting duplicates found in `/path/to/directory1`, ensuring that at least one copy remains outside the directory. No files are actually deleted due to `-n` (dry-run mode).
+
+#### Delete duplicate files (actual deletion)
+
+```bash
+py-dedup delete /path/to/directory1 --delete-dirs /path/to/directory2
+```
+
+This deletes duplicate files in `/path/to/directory1` while ensuring at least one copy exists elsewhere.
+
+#### Clear cached results
+
+```bash
+py-dedup clear-cache
+```
+
+This removes cached scan results, forcing a fresh scan on the next run.
+
+---
+
+### Programmatic Usage (Python API)
+
+Below is an example of how to use `py-dedup` in Python:
 
 ```python
 import pathlib
 from py_dedup import DupFinder, DupHandler
 
 # 1. Create a DupFinder instance, specifying one or more directories.
-finder = DupFinder(
-    dirs=[r"/path/to/dir1", r"/path/to/dir2"],
-    chunk_size=8192,  # Optional. Default is 8192 bytes per chunk for hashing.
-)
+finder = DupFinder(dirs=["/path/to/dir1", "/path/to/dir2"], chunk_size=8192)
 
 # 2. Sort and get duplicates:
 finder.sort_duplicates_alphabetically()
-duplicates: list[tuple[int, list[list[pathlib.Path]]]] = finder.get_size_sorted_duplicates()
-# do something with duplicates...
+duplicates = finder.get_size_sorted_duplicates()
 
 # 3. Print duplicates and empty files:
-finder.print_duplicates()  # Prints duplicates (if any) in descending order by size
+finder.print_duplicates()
 print("Empty files detected:", finder.empty_files)
 
 # 4. Create a DupHandler to manage deletions.
 handler = DupHandler(finder)
 
-# 5. --- DRY-RUN deletion ---
-# This won't delete anything; it only shows which files WOULD be deleted.
+# 5. Perform a dry-run deletion.
 deleted_files_dry_run, failed_deletions_dry_run = handler.remove_dir_duplicates(
-    dirs=[r"/path/to/dir1"],  # The directory in which duplicates should be removed
-    dry_run=True,             # IMPORTANT: This ensures we do not actually delete anything
+    dirs=["/path/to/dir1"], dry_run=True
 )
-
 print("Dry-run deleted files:", deleted_files_dry_run)
 print("Dry-run failed deletions:", failed_deletions_dry_run)
 
-# 6. If satisfied with the dry-run results, you can do the actual deletion:
+# 6. Perform actual deletion.
 deleted_files, failed_deletions = handler.remove_dir_duplicates(
-    dirs=[r"/path/to/dir1"],
-    dry_run=False,  # Now set to False for actual deletion
+    dirs=["/path/to/dir1"], dry_run=False
 )
-
 print("Actually deleted files:", deleted_files)
 print("Failed deletions:", failed_deletions)
 ```
@@ -118,7 +154,7 @@ print("Failed deletions:", failed_deletions)
 
 ## How It Works
 
-1. **Size Grouping**: Files are first grouped by their size. 
+1. **Size Grouping**: Files are first grouped by their size.
 2. **Empty Files**: Any files of size 0 are immediately marked as empty files.
 3. **MD5 Hash Check**: For each size group with more than one file, MD5 hashes are calculated to confirm exact duplicates.
 4. **Duplicates Listing**: Duplicates are stored in a dictionary, keyed by file size, with each value containing lists of files sharing the same hash.
@@ -133,16 +169,21 @@ py-dedup/
 │
 ├─ py_dedup/
 │   ├─ __init__.py
-│   ├─ core.py # Contains DirectoryValidator, DupFinder, DupHandler
-│   ├─ cli.py    # CLI interface (work in progress)
+│   ├─ core.py              # Contains DirectoryValidator, DupFinder, DupHandler
+│   ├─ cli.py               # CLI interface
+│   ├─ persistent_cache.py  # Caching for duplicate scan results
 │
 ├─ tests/
-│   └─ ...        # Unit tests
+│   ├─ global_test_vars.py
+│   ├─ test_core.py
+│   ├─ test_persistent_cache.py
+│   ├─ test_helpers.py
+│   ├─ utils_tests.py
 │
 ├─ pyproject.toml
 ├─ LICENSE
-├─ README.md      # This file
-├─ manual_tests.py # Used for manual testing. Not necessary for end user.
+├─ README.md
+├─ manual_tests.py          # Used for manual testing. Not necessary for end user.
 ```
 
 ---
