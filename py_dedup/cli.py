@@ -28,9 +28,9 @@ def main(arguments: list[str] | None = None) -> None:
     args = parse_args(arguments)
 
     commands = {
-        "find": lambda: find_duplicates(args.directories),
+        "find-duplicates": lambda: find_duplicates(args.directories),
         "show-duplicates": lambda: show_duplicates(args.directories, args.threshold),
-        "delete": lambda: delete_duplicates(
+        "delete-duplicates": lambda: delete_duplicates(
             args.directories, args.delete_dirs, args.dry_run
         ),
         "clear-cache": clear_cache,
@@ -65,13 +65,13 @@ def show_duplicates(dirs: list[str], threshold: int) -> None:
     tmp_file = get_current_tempfile(dirs, threshold)
     if tmp_file is None:
         print(
-            f"No cached result for dirs: {dirs} exist within threshold. Use py-dedup find"
+            f"No cached result for dirs: {dirs} exist within threshold. Use py-dedup find-duplicates"
         )
         return
 
     finder = unpickle_dupfinder(tmp_file)
     if finder is None:
-        print(f"Error reading cache for dirs: {dirs}. Use py-dedup find instead!")
+        print(f"Error reading cache for dirs: {dirs}. Use py-dedup find-duplicates instead!")
         return
 
     if not finder.duplicates:
@@ -134,7 +134,7 @@ def parse_args(arguments: list[str]) -> argparse.Namespace:
 
     # Subparser for finding duplicates
     find_parser = subparsers.add_parser(
-        "find", help="Find duplicate files in specified directories."
+        "find-duplicates", help="Find duplicate files in specified directories."
     )
     find_parser.add_argument(
         "directories", nargs="+", help="Directories to scan for duplicates."
@@ -158,7 +158,7 @@ def parse_args(arguments: list[str]) -> argparse.Namespace:
 
     # Subparser for deleting duplicates
     delete_parser = subparsers.add_parser(
-        "delete", help="Delete duplicate files in specified directories."
+        "delete-duplicates", help="Delete duplicate files in specified directories."
     )
     delete_parser.add_argument(
         "directories", nargs="+", help="Directories to scan for duplicates."

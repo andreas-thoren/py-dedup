@@ -74,7 +74,7 @@ If you prefer to have a local copy of the repository, follow these steps:
 #### Find duplicate files
 
 ```bash
-py-dedup find /path/to/directory1 /path/to/directory2
+py-dedup find-duplicates /path/to/directory1 /path/to/directory2
 ```
 
 This scans the specified directories for duplicate files and displays the results. Results are cached for faster retrieval later.
@@ -90,7 +90,7 @@ This retrieves previously scanned duplicate results if they are less than 60 min
 #### Delete duplicate files (dry run)
 
 ```bash
-py-dedup delete /path/to/directory1 /path/to/directory2 --delete-dirs /path/to/directory2 -n
+py-dedup delete-duplicates /path/to/directory1 /path/to/directory2 --delete-dirs /path/to/directory2 -n
 ```
 
 This simulates searching for duplicates among files in directories `/path/to/directory1` and `/path/to/directory2` and deleting duplicates found in `/path/to/directory2`, ensuring that at least one copy remains outside the directory. No files are actually deleted due to `-n` (dry-run mode).
@@ -98,7 +98,7 @@ This simulates searching for duplicates among files in directories `/path/to/dir
 #### Delete duplicate files (actual deletion)
 
 ```bash
-py-dedup delete /path/to/directory1 /path/to/directory2 --delete-dirs /path/to/directory2
+py-dedup delete-duplicates /path/to/directory1 /path/to/directory2 --delete-dirs /path/to/directory2
 ```
 
 Do the actual deletions of duplicates in `/path/to/directory2`
@@ -190,9 +190,8 @@ py-dedup/
 
 ## TODO
 
-- [ ] Rename find -> find-duplicates and delete -> delete-duplicates.
 - [ ] Write tests for cli.py
-- [ ] Make output of find/show scrollable
+- [ ] Make output of find-duplicate/show scrollable
 - [ ] Add docstrings to cli.py and persistent_cache.py (cli branch)
 - [ ] Change remove_dir_duplicates so that if no duplicates exist outside of delete dirs all duplicates except one will still be deleted (compared to none now)
 - [ ] Change/rename remove_dir_duplicates to also accept a glob pattern as an alternative to dirs to find dups to be deleted. Rename.
