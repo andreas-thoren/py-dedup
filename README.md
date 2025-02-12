@@ -90,18 +90,18 @@ This retrieves previously scanned duplicate results if they are less than 60 min
 #### Delete duplicate files (dry run)
 
 ```bash
-py-dedup delete /path/to/directory1 --delete-dirs /path/to/directory2 -n
+py-dedup delete /path/to/directory1 /path/to/directory2 --delete-dirs /path/to/directory2 -n
 ```
 
-This simulates deleting duplicates found in `/path/to/directory1`, ensuring that at least one copy remains outside the directory. No files are actually deleted due to `-n` (dry-run mode).
+This simulates searching for duplicates among files in directories `/path/to/directory1` and `/path/to/directory2` and deleting duplicates found in `/path/to/directory2`, ensuring that at least one copy remains outside the directory. No files are actually deleted due to `-n` (dry-run mode).
 
 #### Delete duplicate files (actual deletion)
 
 ```bash
-py-dedup delete /path/to/directory1 --delete-dirs /path/to/directory2
+py-dedup delete /path/to/directory1 /path/to/directory2 --delete-dirs /path/to/directory2
 ```
 
-This deletes duplicate files in `/path/to/directory1` while ensuring at least one copy exists elsewhere.
+Do the actual deletions of duplicates in `/path/to/directory2`
 
 #### Clear cached results
 
