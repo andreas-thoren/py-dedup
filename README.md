@@ -190,9 +190,13 @@ py-dedup/
 
 ## TODO
 
+- [ ] Rename find -> find-duplicates and delete -> delete-duplicates.
 - [ ] Write tests for cli.py
+- [ ] Make output of find/show scrollable
 - [ ] Add docstrings to cli.py and persistent_cache.py (cli branch)
 - [ ] Change remove_dir_duplicates so that if no duplicates exist outside of delete dirs all duplicates except one will still be deleted (compared to none now)
+- [ ] Change/rename remove_dir_duplicates to also accept a glob pattern as an alternative to dirs to find dups to be deleted. Rename.
+- [ ] Implement logging
 - [ ] Change datastructure of DupFinder to contain two dictionaries. One { "hash_value": dup_instance(file_size, set(file_paths)) }. The other { file_path: "hash_value" }. This so you can modify DupFinder instances easier.
 - [ ] Write method for removing redundant dirs ex "parentdir/" and "parentdir/childdir/" could be reduced to only parentdir.
 - [ ] Add gui.py
