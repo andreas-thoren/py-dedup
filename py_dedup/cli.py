@@ -2,6 +2,7 @@
 
 import sys
 import argparse
+import pathlib
 from datetime import timedelta
 from .core import DupFinder, DupHandler
 from .persistent_cache import (
@@ -43,12 +44,19 @@ def main(arguments: list[str] | None = None) -> None:
         ) from exc
 
 
+def set_cache(dirs: list[str]) -> pathlib.Path:
+    prefix = get_tempfile_prefix(dirs)
+    pattern = f"{prefix}*{TMP_FILE_SUFFIX}"
+    cleanup_user_tempfiles(pattern=pattern)
+    return create_tempfile(dirs)
+
+
 def find_duplicates(dirs: list[str]) -> None:
     finder = DupFinder(dirs)
     finder.sort_duplicates_alphabetically()
     finder.print_duplicates()
 
-    tmp_file = get_current_tempfile(dirs) or create_tempfile(dirs)
+    tmp_file = set_cache(dirs)
     pickle_dupfinder(finder=finder, path=tmp_file)
 
 
@@ -81,7 +89,7 @@ def delete_duplicates(dirs: list[str], delete_dirs: list[str], dry_run: bool) ->
     # If unpickling failed or no cache exists, create a new instance
     if finder is None:
         finder = DupFinder(dirs)
-        tmp_file = tmp_file or create_tempfile(dirs)
+        tmp_file = set_cache(dirs)
         pickle_dupfinder(finder=finder, path=tmp_file)
 
     # Instantiate DupHandler and perform deletions (if not dry_run=True)
