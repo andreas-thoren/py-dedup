@@ -3,6 +3,7 @@ import unittest
 from time import sleep
 from py_dedup.persistent_cache import *
 from tests.global_test_vars import TEST_DIR, CMPR_DIR, COPY_CMPR_DIR
+from tests.utils_tests import dupfinders_are_equal
 
 
 class TestPersistentCache(unittest.TestCase):
@@ -85,7 +86,18 @@ class TestPersistentCache(unittest.TestCase):
         tmp_file = get_current_tempfile(dirs)
         self.assertIsNone(tmp_file)
 
-    # TODO write tests for pickling/unpickling
+    def test_pickling(self):
+        dirs = [CMPR_DIR, TEST_DIR, COPY_CMPR_DIR]
+        finder = DupFinder(dirs)
+        path = pickle_dupfinder(finder)
+        cached_finder = unpickle_dupfinder(path)
+        # Compare initial dupfindar instance with the one returned after pickling/unpickling
+        self.assertTrue(dupfinders_are_equal(finder, cached_finder))
+
+        # Cleanup cache
+        prefix = get_tempfile_prefix(dirs)
+        pattern = f"{prefix}*{TMP_FILE_SUFFIX}"
+        cleanup_user_tempfiles(pattern=pattern)
 
 
 if __name__ == "__main__":
