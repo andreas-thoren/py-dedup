@@ -3,6 +3,7 @@
 import sys
 import argparse
 import pathlib
+import pydoc
 from datetime import timedelta
 from .core import DupFinder, DupHandler
 from .persistent_cache import (
@@ -54,7 +55,13 @@ def set_cache(dirs: list[str]) -> pathlib.Path:
 def find_duplicates(dirs: list[str]) -> None:
     finder = DupFinder(dirs)
     finder.sort_duplicates_alphabetically()
-    finder.print_duplicates()
+
+    # If output in terminal use pager else print
+    if sys.stdout.isatty():
+        output = finder.get_duplicates_string()
+        pydoc.pager(output)
+    else:
+        finder.print_duplicates()
 
     tmp_file = set_cache(dirs)
     pickle_dupfinder(finder=finder, path=tmp_file)
@@ -71,14 +78,22 @@ def show_duplicates(dirs: list[str], threshold: int) -> None:
 
     finder = unpickle_dupfinder(tmp_file)
     if finder is None:
-        print(f"Error reading cache for dirs: {dirs}. Use py-dedup find-duplicates instead!")
+        print(
+            f"Error reading cache for dirs: {dirs}. Use py-dedup find-duplicates instead!"
+        )
         return
 
     if not finder.duplicates:
         print(f"No duplicates exist in dirs: {dirs}")
 
     finder.sort_duplicates_alphabetically()
-    finder.print_duplicates()
+
+    # If output in terminal use pager else print
+    if sys.stdout.isatty():
+        output = finder.get_duplicates_string()
+        pydoc.pager(output)
+    else:
+        finder.print_duplicates()
 
 
 def delete_duplicates(dirs: list[str], delete_dirs: list[str], dry_run: bool) -> None:

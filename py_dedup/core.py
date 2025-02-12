@@ -380,6 +380,33 @@ class DupFinder:
         duplicate_list.sort(key=lambda x: x[0], reverse=reverse)
         return duplicate_list
 
+    def get_duplicates_string(self, reverse: bool = True) -> str:
+        """
+        Get a string a string representation of all detected duplicates.
+
+        Args:
+            reverse (bool): If True, prints larger file-size groups first.
+                            Defaults to True.
+
+        Returns:
+            A string of all detected duplicates grouped by their file size.
+        """
+        duplicate_list = self.get_size_sorted_duplicates(reverse)
+
+        if not duplicate_list:
+            return "No duplicates found!"
+
+        output = ""
+        msg = "The following files are duplicates"
+
+        for size, list_of_dup_lists in duplicate_list:
+            output += f"\n{msg}, filesize={size}:\n"
+            for dup_list in list_of_dup_lists:
+                for duplicate in dup_list:
+                    output += f"{duplicate}\n"
+
+        return output
+
     def print_duplicates(self, reverse: bool = True) -> None:
         """
         Print all detected duplicates, grouped by their file size.
@@ -388,21 +415,8 @@ class DupFinder:
             reverse (bool): If True, prints larger file-size groups first.
                             Defaults to True.
         """
-        duplicate_list = self.get_size_sorted_duplicates(reverse)
-
-        if not duplicate_list:
-            print("No duplicates found!")
-            return
-
-        print()
-        msg = "The following files are duplicates"
-        for size, list_of_dup_lists in duplicate_list:
-            print(f"{msg}, filesize={size}:")
-            for dup_list in list_of_dup_lists:
-                for duplicate in dup_list:
-                    print(f"{duplicate}")
-
-                print()
+        output = self.get_duplicates_string(reverse)
+        print(output)
 
     @property
     def dirs(self) -> frozenset[pathlib.Path]:
