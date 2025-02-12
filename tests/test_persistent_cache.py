@@ -74,8 +74,6 @@ class TestPersistentCache(unittest.TestCase):
         path1 = create_tempfile(dirs)
         sleep(0.04)  # Needed so there is an assured difference in st_mtime
         path2 = create_tempfile(dirs)
-        print(path1)
-        print(path2)
         # Check that the latest file_path is returned
         returned_path = get_current_tempfile(dirs)
         self.assertEqual(path2, returned_path)
