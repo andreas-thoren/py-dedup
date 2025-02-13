@@ -172,10 +172,12 @@ py-dedup/
 │   ├─ persistent_cache.py  # Caching for duplicate scan results
 │
 ├─ tests/
+│   ├─ __init__.py
 │   ├─ global_test_vars.py
+│   ├─ test_cli.py
+│   ├─ test_config.toml
 │   ├─ test_core.py
 │   ├─ test_persistent_cache.py
-│   ├─ test_helpers.py
 │   ├─ utils_tests.py
 │
 ├─ pyproject.toml
