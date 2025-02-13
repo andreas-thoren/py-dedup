@@ -113,14 +113,19 @@ def delete_duplicates(dirs: list[str], delete_dirs: list[str], dry_run: bool) ->
         dirs=delete_dirs, dry_run=dry_run
     )
 
+    # Create output string from return of remove_dir_duplicates
     msg = "Would have deleted:" if dry_run else "Deleted:"
-    print("\n".join(f"{msg} {path}" for path in deleted_files), end="")
-    print(
-        "\n".join(
-            f"Error deleting: {path}, Exception: {exc}" for path, exc in error_files
-        ),
-        end="",
+    del_output = "\n".join(f"{msg} {path}" for path in deleted_files)
+    err_output = "\n".join(
+        f"Error deleting: {path}, Exception: {exc}" for path, exc in error_files
     )
+    output = f"{del_output}\n\n{err_output}\n" if err_output else f"{del_output}\n"
+
+    # If output in terminal use pager else print
+    if sys.stdout.isatty():
+        pydoc.pager(output)
+    else:
+        print(output)
 
     # If actual file deletions took place delete cache (not current any longer)
     if deleted_files and not dry_run:
