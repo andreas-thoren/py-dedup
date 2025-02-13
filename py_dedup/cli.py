@@ -52,16 +52,20 @@ def set_cache(dirs: list[str]) -> pathlib.Path:
     return create_tempfile(dirs)
 
 
+def handle_output(output: str) -> None:
+    # If output in terminal use pager else print
+    if sys.stdout.isatty():
+        pydoc.pager(output)
+    else:
+        print(output)
+
+
 def find_duplicates(dirs: list[str]) -> None:
     finder = DupFinder(dirs)
     finder.sort_duplicates_alphabetically()
 
-    # If output in terminal use pager else print
-    if sys.stdout.isatty():
-        output = finder.get_duplicates_string()
-        pydoc.pager(output)
-    else:
-        finder.print_duplicates()
+    output = finder.get_duplicates_string()
+    handle_output(output)
 
     tmp_file = set_cache(dirs)
     pickle_dupfinder(finder=finder, path=tmp_file)
@@ -89,11 +93,8 @@ def show_duplicates(dirs: list[str], threshold: int) -> None:
     finder.sort_duplicates_alphabetically()
 
     # If output in terminal use pager else print
-    if sys.stdout.isatty():
-        output = finder.get_duplicates_string()
-        pydoc.pager(output)
-    else:
-        finder.print_duplicates()
+    output = finder.get_duplicates_string()
+    handle_output(output)
 
 
 def delete_duplicates(dirs: list[str], delete_dirs: list[str], dry_run: bool) -> None:
@@ -120,12 +121,7 @@ def delete_duplicates(dirs: list[str], delete_dirs: list[str], dry_run: bool) ->
         f"Error deleting: {path}, Exception: {exc}" for path, exc in error_files
     )
     output = f"{del_output}\n\n{err_output}\n" if err_output else f"{del_output}\n"
-
-    # If output in terminal use pager else print
-    if sys.stdout.isatty():
-        pydoc.pager(output)
-    else:
-        print(output)
+    handle_output(output)
 
     # If actual file deletions took place delete cache (not current any longer)
     if deleted_files and not dry_run:
