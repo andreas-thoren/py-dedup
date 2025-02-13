@@ -400,12 +400,12 @@ class DupFinder:
         msg = "The following files are duplicates"
 
         for size, list_of_dup_lists in duplicate_list:
-            output += f"\n{msg}, filesize={size}:\n"
             for dup_list in list_of_dup_lists:
+                output += f"\n{msg}, filesize={size}:\n"
                 for duplicate in dup_list:
                     output += f"{duplicate}\n"
 
-        return output
+        return output + "\n"
 
     def print_duplicates(self, reverse: bool = True) -> None:
         """
