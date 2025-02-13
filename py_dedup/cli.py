@@ -90,8 +90,6 @@ def show_duplicates(dirs: list[str], threshold: int) -> None:
     if not finder.duplicates:
         print(f"No duplicates exist in dirs: {dirs}")
 
-    finder.sort_duplicates_alphabetically()
-
     # If output in terminal use pager else print
     output = finder.get_duplicates_string()
     display_output(output)
