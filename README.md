@@ -140,14 +140,12 @@ deleted_files_dry_run, failed_deletions_dry_run = handler.remove_dir_duplicates(
     dirs=["/path/to/dir1"], dry_run=True
 )
 print("Dry-run deleted files:", deleted_files_dry_run)
-print("Dry-run failed deletions:", failed_deletions_dry_run)
 
 # 6. Perform actual deletion.
 deleted_files, failed_deletions = handler.remove_dir_duplicates(
     dirs=["/path/to/dir1"], dry_run=False
 )
 print("Actually deleted files:", deleted_files)
-print("Failed deletions:", failed_deletions)
 ```
 
 ---

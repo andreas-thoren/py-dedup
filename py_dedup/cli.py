@@ -113,9 +113,14 @@ def delete_duplicates(dirs: list[str], delete_dirs: list[str], dry_run: bool) ->
         dirs=delete_dirs, dry_run=dry_run
     )
 
-    # Present error result for user so these are shown last
-    for error_file in error_files:
-        print(f"Error deleting: {error_file}")
+    msg = "Would have deleted:" if dry_run else "Deleted:"
+    print("\n".join(f"{msg} {path}" for path in deleted_files), end="")
+    print(
+        "\n".join(
+            f"Error deleting: {path}, Exception: {exc}" for path, exc in error_files
+        ),
+        end="",
+    )
 
     # If actual file deletions took place delete cache (not current any longer)
     if deleted_files and not dry_run:

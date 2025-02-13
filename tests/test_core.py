@@ -194,7 +194,7 @@ class TestDupHandler(unittest.TestCase):
         self.assertFalse(self.handler._deletions_occurred)
 
         # Attempt to remove duplicates in sub3 only
-        deleted_files, failed_deletions = self.handler.remove_dir_duplicates(
+        deleted_files, error_tuples = self.handler.remove_dir_duplicates(
             dirs=[self.sub_dir_3],
             dry_run=False,
         )
@@ -209,7 +209,7 @@ class TestDupHandler(unittest.TestCase):
         self.assertEqual(
             {dup2_3}, set(deleted_files), "Only dup2_3.txt should have been deleted."
         )
-        self.assertFalse(failed_deletions, "No deletions should have failed.")
+        self.assertFalse(error_tuples, "No deletions should have failed.")
 
         # Check that further calls to remove_dir_duplicates fail when force=False
         self.assertTrue(self.handler._deletions_occurred)

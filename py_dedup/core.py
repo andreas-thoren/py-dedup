@@ -490,7 +490,7 @@ class DupHandler:
 
     def remove_dir_duplicates(
         self, dirs: list[pathlib.Path | str], dry_run: bool = False, force: bool = False
-    ) -> tuple[list[pathlib.Path], list[pathlib.Path]]:
+    ) -> tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
         """
         Remove duplicate files from the specified directories.
 
@@ -500,17 +500,17 @@ class DupHandler:
             force (bool): If True, bypasses the check for previously deleted duplicates. Use with caution.
 
         Returns:
-            tuple[list[Path], list[Path]]:
-                - A list of files successfully deleted.
-                - A list of files that could not be deleted.
+            tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
+                - A list of files, pathlib.Path objects, successfully deleted.
+                - A list of tuple[pathlib.Path, Exception] where each tuple
+                    is related to a file that could not be deleted.
 
         Raises:
             ValueError: If previous deletions have occurred and `force` is not set to True.
 
         Notes:
             - Internally calls `_delete_files`, which catches common errors (`FileNotFoundError`,
-              `PermissionError`, and other `OSError` exceptions). Any files that fail to be deleted
-              for such reasons will be returned in the second list of the tuple.
+              `PermissionError`, and other `OSError` exceptions).
         """
 
         # If previous deletions has occured the underlying DupFinder instance is inaccurate.
@@ -545,17 +545,17 @@ class DupHandler:
 
                 # If at least one duplicate exists outside parentdir1, delete the ones in parentdir1
                 if dups_to_keep:
-                    new_deletions, new_errors = self._delete_files(
+                    new_deletions, error_tuples = self._delete_files(
                         dups_to_delete, dry_run
                     )
                     deleted_files.extend(new_deletions)
-                    failed_deletions.extend(new_errors)
+                    failed_deletions.extend(error_tuples)
 
         return deleted_files, failed_deletions
 
     def _delete_files(
         self, files_to_delete: list[pathlib.Path], dry_run: bool = False
-    ) -> tuple[list[pathlib.Path], list[pathlib.Path]]:
+    ) -> tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
         """
         Deletes the specified files, with optional dry-run functionality.
 
@@ -564,14 +564,11 @@ class DupHandler:
             dry_run (bool): If True, simulate deletions without actually deleting files.
 
         Returns:
-            tuple[list[pathlib.Path], list[pathlib.Path]]
-                A two element tuple:
+            tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
+                A two-element tuple:
                   1. The files successfully deleted (or that would have been in a dry run).
-                  2. The files that could not be deleted due to errors.
-
-        Notes:
-            - This method catches common errors (FileNotFoundError, PermissionError, OSError) instead
-              of raising them, adding the offending file paths to the failures list.
+                  2. A list of tuples, each containing the file that could not be deleted
+                     and the exception that occurred.
         """
         deleted_files = []
         failed_deletions = []
@@ -581,19 +578,10 @@ class DupHandler:
                 if not dry_run:
                     file_path.unlink()  # Deletes the file
                     self._deletions_occurred = True
-                    print(f"Deleted: {file_path}")
-                else:
-                    print(f"Would have deleted: {file_path}")
+                # In dry run, we consider it as a successful simulation
                 deleted_files.append(file_path)
-            except FileNotFoundError:
-                print(f"File not found (already deleted?): {file_path}")
-                failed_deletions.append(file_path)
-            except PermissionError:
-                print(f"Permission denied: {file_path}")
-                failed_deletions.append(file_path)
-            except OSError as e:
-                print(f"Error deleting {file_path}: {e}")
-                failed_deletions.append(file_path)
+            except (FileNotFoundError, PermissionError, OSError) as e:
+                failed_deletions.append((file_path, e))
 
         return deleted_files, failed_deletions
 
