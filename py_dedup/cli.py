@@ -1,4 +1,24 @@
-"""Contains code for the cli interface"""
+"""
+This module provides a command-line interface (CLI) for interacting with py-dedup.
+
+The CLI allows users to:
+    - Find duplicate files within specified directories.
+    - View cached duplicate results if available.
+    - Delete duplicate files from specified directories.
+    - Clear cached duplicate results.
+
+Commands:
+    - find-duplicates: Scans specified directories for duplicate files.
+    - show-duplicates: Displays cached duplicate results.
+    - delete-duplicates: Removes duplicate files, ensuring at least one copy remains elsewhere.
+    - clear-cache: Deletes all cached scan results.
+
+Typical usage example:
+    >>> py-dedup find-duplicates /path/dir1 /path/dir2
+    >>> py-dedup show-duplicates /path/dir1 --threshold 60
+    >>> py-dedup delete-duplicates /path/dir1 /path/dir2 --delete-dirs /path/dir2 -n
+    >>> py-dedup clear-cache
+"""
 
 import sys
 import argparse
@@ -18,7 +38,15 @@ from .persistent_cache import (
 
 
 def main(arguments: list[str] | None = None) -> None:
-    """main function of the cli interface"""
+    """
+    Parses CLI arguments and executes the corresponding command.
+
+    Args:
+        arguments (list[str] | None): Command-line arguments, defaults to None.
+
+    Raises:
+        ValueError: If an invalid command is provided.
+    """
     if arguments is None:
         arguments = sys.argv[1:]
 
@@ -46,6 +74,17 @@ def main(arguments: list[str] | None = None) -> None:
 
 
 def set_cache(dirs: list[str]) -> pathlib.Path:
+    """
+    1. Deletes previous cache files from duplicate scanning of the specific dirs.
+    2. Creates a temporary cache file for storing future duplicate scan results
+        with the specific dirs as arguments.
+
+    Args:
+        dirs (list[str]): The dirs associated with the cache file/files.
+
+    Returns:
+        pathlib.Path: The path to the created cache file.
+    """
     prefix = get_tempfile_prefix(dirs)
     pattern = f"{prefix}*{TMP_FILE_SUFFIX}"
     cleanup_user_tempfiles(pattern=pattern)
@@ -53,6 +92,13 @@ def set_cache(dirs: list[str]) -> pathlib.Path:
 
 
 def display_output(output: str) -> None:
+    """
+    Displays output using a pager if in an interactive terminal,
+    otherwise prints to stdout.
+
+    Args:
+        output (str): The output string to be displayed.
+    """
     # If output in terminal use pager else print
     if sys.stdout.isatty():
         pydoc.pager(output)
@@ -61,6 +107,12 @@ def display_output(output: str) -> None:
 
 
 def find_duplicates(dirs: list[str]) -> None:
+    """
+    Finds duplicate files in the specified directories and caches the results.
+
+    Args:
+        dirs (list[str]): The list of directories to scan.
+    """
     finder = DupFinder(dirs)
     finder.sort_duplicates_alphabetically()
 
@@ -72,6 +124,13 @@ def find_duplicates(dirs: list[str]) -> None:
 
 
 def show_duplicates(dirs: list[str], threshold: int) -> None:
+    """
+    Displays cached duplicate results if available within the given time threshold.
+
+    Args:
+        dirs (list[str]): The list of directories to show duplicates in.
+        threshold (int): The threshold time in minutes for cache validity.
+    """
     threshold = timedelta(minutes=threshold)
     tmp_file = get_current_tempfile(dirs, threshold)
     if tmp_file is None:
@@ -96,6 +155,23 @@ def show_duplicates(dirs: list[str], threshold: int) -> None:
 
 
 def delete_duplicates(dirs: list[str], delete_dirs: list[str], dry_run: bool) -> None:
+    """
+    1. Scans direcories (dirs) for duplicates (or loads cached results).
+    2. Removes duplicate files from the specified directories (delete_dirs)
+        while ensuring at least one copy remains elsewhere.
+
+    Args:
+        dirs (list[str]): The directories to scan for duplicates.
+        delete_dirs (list[str]): The directories where duplicates should be deleted.
+        dry_run (bool): If True, simulates deletions without actually removing files.
+
+    Raises:
+        ValueError: If an issue occurs during deletion or file retrieval.
+
+    Notes:
+        - Only duplicates found within `delete_dirs` are removed.
+        - If `dry_run` is enabled, no actual deletions occur, only a preview is provided.
+    """
     # Attempt to retrieve DupFinder instance from cache
     tmp_file = get_current_tempfile(dirs)
     finder = unpickle_dupfinder(tmp_file) if tmp_file else None
@@ -128,6 +204,9 @@ def delete_duplicates(dirs: list[str], delete_dirs: list[str], dry_run: bool) ->
 
 
 def clear_cache() -> None:
+    """
+    Clears all cached duplicate scan results.
+    """
     deleted_files, error_files = cleanup_user_tempfiles()
 
     if deleted_files:
@@ -144,7 +223,18 @@ def clear_cache() -> None:
 
 
 def parse_args(arguments: list[str]) -> argparse.Namespace:
-    """Parses command-line arguments with subcommands."""
+    """
+    Parses command-line arguments and returns an argparse.Namespace object.
+
+    Args:
+        arguments (list[str]): List of command-line arguments to be parsed.
+
+    Returns:
+        argparse.Namespace: Parsed arguments containing command and its options.
+
+    Raises:
+        SystemExit: If invalid arguments are provided.
+    """
     parser = argparse.ArgumentParser(
         description="py-dedup: A tool to find and handle duplicate files."
     )
