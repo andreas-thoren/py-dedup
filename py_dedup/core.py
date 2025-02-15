@@ -461,6 +461,9 @@ class DupHandler:
 
     Features:
         - Removes duplicate files from specified directories.
+          When duplicates are found, if at least one copy exists outside the deletion
+          directories, all duplicates within those directories are removed; otherwise,
+          all except one copy (selected by sorted order) are deleted.
         - Supports a dry run mode to simulate deletions without performing them.
         - Can refresh the state of the underlying `DupFinder` instance to ensure accurate results.
 
@@ -494,6 +497,12 @@ class DupHandler:
         """
         Remove duplicate files from the specified directories.
 
+        For each duplicate group, this method determines the files that reside in the
+        deletion directories. If at least one duplicate exists outside the deletion
+        directories, then all duplicates found within the deletion directories are removed.
+        However, if all duplicates are located within the deletion directories, then all
+        except one (selected by sorted order) are deleted to ensure at least one copy remains.
+
         Args:
             dirs (list[Path | str]): A list of directories where duplicates should be deleted.
             dry_run (bool): If True, simulate deletions without actually deleting files.
@@ -501,55 +510,54 @@ class DupHandler:
 
         Returns:
             tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
-                - A list of files, pathlib.Path objects, successfully deleted.
-                - A list of tuple[pathlib.Path, Exception] where each tuple
-                    is related to a file that could not be deleted.
+                - A list of files (as pathlib.Path objects) that were successfully deleted.
+                - A list of tuples (file, exception) for files that could not be deleted.
 
         Raises:
             ValueError: If previous deletions have occurred and `force` is not set to True.
 
         Notes:
-            - Internally calls `_delete_files`, which catches common errors (`FileNotFoundError`,
-              `PermissionError`, and other `OSError` exceptions).
+            - Internally calls `_delete_files`, which handles common errors such as FileNotFoundError,
+              PermissionError, and other OSError exceptions.
         """
-
-        # If previous deletions has occured the underlying DupFinder instance is inaccurate.
         if self._deletions_occurred and not force:
             raise ValueError(
                 "You cannot perform additional deletions without using refresh or setting force=True"
                 + "\nThis is because the underlying DupFinder.duplicates property will be inaccurate!"
                 + "\nIf you are not very sure about what you are doing do NOT set force=True!"
-                + "\nInstead use the refresh method on this DupHandler instance before calling this "
-                + "method again."
+                + "\nInstead use the refresh method on this DupHandler instance before calling this method again."
             )
 
-        # Validate dirs and resolve dirs
+        # Validate dirs and resolve them
         dir_set = DirectoryValidator.get_dir_set(dirs)
         deleted_files = []
         failed_deletions = []
 
         for size_group in self.finder.duplicates.values():
             for duplicate_list in size_group:
-                # Split paths into those in specified dirs where dups should be deleted and others
+                # Find files that reside inside any of the delete dirs.
                 dups_to_delete = [
                     path
                     for path in duplicate_list
                     if any(path.is_relative_to(d) for d in dir_set)
                 ]
 
-                dups_to_keep = [
-                    path
-                    for path in duplicate_list
-                    if not any(path.is_relative_to(d) for d in dir_set)
-                ]
+                if not dups_to_delete:
+                    continue
 
-                # If at least one duplicate exists outside parentdir1, delete the ones in parentdir1
-                if dups_to_keep:
-                    new_deletions, error_tuples = self._delete_files(
-                        dups_to_delete, dry_run
-                    )
-                    deleted_files.extend(new_deletions)
-                    failed_deletions.extend(error_tuples)
+                # If not all files in the duplicate group are in the delete dirs,
+                # delete all duplicates in the delete dirs.
+                # Otherwise, if all are in delete dirs, keep one copy (using sorted order) and delete the rest.
+                dups_to_keep = len(dups_to_delete) < len(duplicate_list)
+                files_to_remove = (
+                    dups_to_delete if dups_to_keep else sorted(dups_to_delete)[1:]
+                )
+
+                new_deletions, error_tuples = self._delete_files(
+                    files_to_remove, dry_run
+                )
+                deleted_files.extend(new_deletions)
+                failed_deletions.extend(error_tuples)
 
         return deleted_files, failed_deletions
 

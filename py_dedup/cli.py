@@ -5,17 +5,22 @@ The CLI allows users to:
     - Find duplicate files within specified directories.
     - View cached duplicate results if available.
     - Delete duplicate files from specified directories.
+      When using the delete command:
+        - If at least one duplicate exists outside the specified deletion directories,
+          all duplicates within those directories are removed.
+        - If all duplicates reside within the deletion directories, then all except one copy
+          (selected via sorted order) are deleted to ensure at least one copy remains.
     - Clear cached duplicate results.
 
 Commands:
     - find-duplicates: Scans specified directories for duplicate files.
     - show-duplicates: Displays cached duplicate results.
-    - delete-duplicates: Removes duplicate files, ensuring at least one copy remains elsewhere.
+    - delete-duplicates: Removes duplicate files based on the criteria above.
     - clear-cache: Deletes all cached scan results.
 
 Typical usage example:
     >>> py-dedup find-duplicates /path/dir1 /path/dir2
-    >>> py-dedup show-duplicates /path/dir1 --threshold 60
+    >>> py-dedup show-duplicates /path/dir1 /path/dir2 --threshold 60
     >>> py-dedup delete-duplicates /path/dir1 /path/dir2 --delete-dirs /path/dir2 -n
     >>> py-dedup clear-cache
 """
@@ -156,9 +161,12 @@ def show_duplicates(dirs: list[str], threshold: int) -> None:
 
 def delete_duplicates(dirs: list[str], delete_dirs: list[str], dry_run: bool) -> None:
     """
-    1. Scans direcories (dirs) for duplicates (or loads cached results).
-    2. Removes duplicate files from the specified directories (delete_dirs)
-        while ensuring at least one copy remains elsewhere.
+    1. Scans directories (dirs) for duplicates (or loads cached results).
+    2. Removes duplicate files from the specified directories (delete_dirs) as follows:
+       - If duplicates exist outside the deletion directories, then all duplicates within the
+         deletion directories are removed.
+       - If all duplicate files reside in the deletion directories, then all except one copy
+         (selected via sorted order) are deleted.
 
     Args:
         dirs (list[str]): The directories to scan for duplicates.
@@ -276,7 +284,12 @@ def parse_args(arguments: list[str]) -> argparse.Namespace:
         "--delete-dirs",
         nargs="+",
         required=True,
-        help="Directories where duplicates should be deleted if at least one copy exists elsewhere.",
+        help=(
+            "Directories where duplicates should be deleted. "
+            "If at least one duplicate exists outside these directories, "
+            "all copies within them are removed; otherwise, all except one copy "
+            "are deleted to ensure at least one copy remains."
+        ),
     )
     delete_parser.add_argument(
         "-n",

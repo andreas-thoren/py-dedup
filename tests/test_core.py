@@ -145,22 +145,20 @@ class TestDupHandler(unittest.TestCase):
 
     def test_remove_dir_duplicates_fail(self):
         """
-        Test removing duplicates from sub1. No deletions should occur since no
-        version of the duplicate exist outside sub1.
+        Test removing duplicates from sub1. dup1_1 should be kept (not deleted)
+        since all duplicates are in delete dirs.
         """
         dup_map = self.finder.duplicates
         self.assertTrue(dup_map, "Expected some duplicates before deletion.")
 
         # Attempt to remove duplicates in sub1 only
-        deleted_files, _ = self.handler.remove_dir_duplicates(
+        self.handler.remove_dir_duplicates(
             dirs=[self.sub_dir_1],
             dry_run=False,
         )
 
-        # No deletions should take place since no version of duplicate outside sub1.
-        self.assertFalse(deleted_files)
+        # dup1_1.txt should still exist since all duplicates are in delete directories
         self.assertTrue((self.sub_dir_1 / "dup1_1.txt").exists())
-        self.assertTrue((self.sub_dir_1 / "dup1_2.txt").exists())
 
     def test_remove_dir_duplicates_dryrun(self):
         """
@@ -190,24 +188,27 @@ class TestDupHandler(unittest.TestCase):
         Also tests force parameter and refresh mechanics.
         """
 
-        # This is the only method were actual deletions occur
-        self.assertFalse(self.handler._deletions_occurred)
-
         # Attempt to remove duplicates in sub3 only
         deleted_files, error_tuples = self.handler.remove_dir_duplicates(
             dirs=[self.sub_dir_3],
             dry_run=False,
         )
 
-        # Check that dup2_3.txt is deleted, while their external duplicates in sub2 remain untouched
+        # Check that expected files are deleted and the rest untouched
         dup2_1 = self.sub_dir_2 / "dup2_1.txt"  # Should not be deleted
         dup2_2 = self.sub_dir_2 / "dup2_2.txt"  # Should not be deleted
         dup2_3 = self.sub_dir_3 / "dup2_3.txt"  # Should be deleted
+        dup3_1 = self.sub_dir_3 / "dup3_1.txt"  # Should not be deleted
+        dup3_2 = self.sub_dir_3 / "dup3_2.txt"  # Should be deleted
         self.assertTrue(dup2_1.exists(), "dup2_1.txt should still exist.")
         self.assertTrue(dup2_2.exists(), "dup2_2.txt should still exist.")
         self.assertFalse(dup2_3.exists(), "dup2_3.txt should no longer exist.")
+        self.assertTrue(dup3_1.exists(), "dup3_1.txt should still exist.")
+        self.assertFalse(dup3_2.exists(), "dup3_2.txt should no longer exist.")
         self.assertEqual(
-            {dup2_3}, set(deleted_files), "Only dup2_3.txt should have been deleted."
+            {dup2_3, dup3_2},
+            set(deleted_files),
+            "Only dup2_3.txt and dup3_2.txt should have been deleted.",
         )
         self.assertFalse(error_tuples, "No deletions should have failed.")
 

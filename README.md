@@ -93,7 +93,9 @@ This retrieves previously scanned duplicate results if they are less than 60 min
 py-dedup delete-duplicates /path/to/directory1 /path/to/directory2 --delete-dirs /path/to/directory2 -n
 ```
 
-This simulates searching for duplicates among files in directories `/path/to/directory1` and `/path/to/directory2` and deleting duplicates found in `/path/to/directory2`, ensuring that at least one copy remains outside the directory. No files are actually deleted due to `-n` (dry-run mode).
+This command simulates deletion of duplicate files:
+- If at least one duplicate exists outside `/path/to/directory2`, then all duplicates found within `/path/to/directory2` are flagged for deletion.
+- If all duplicates are located within `/path/to/directory2`, then all except one copy are flagged for deletion (to ensure one copy remains). No files are actually deleted due to the -n (dry-run) option.
 
 #### Delete duplicate files (actual deletion)
 
@@ -190,7 +192,6 @@ py-dedup/
 
 ## TODO
 
-- [ ] Change remove_dir_duplicates so that if no duplicates exist outside of delete dirs all duplicates except one will still be deleted (compared to none now)
 - [ ] Change/rename remove_dir_duplicates to also accept a glob pattern as an alternative to dirs to find dups to be deleted. Rename.
 - [ ] Implement logging
 - [ ] Change datastructure of DupFinder to contain two dictionaries. One { "hash_value": dup_instance(file_size, set(file_paths)) }. The other { file_path: "hash_value" }. This so you can modify DupFinder instances easier.
