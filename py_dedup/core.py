@@ -53,13 +53,19 @@ class DirectoryValidator:
     @staticmethod
     def get_dir_set(dirs: Iterable[pathlib.Path | str]) -> set[pathlib.Path]:
         """
-        Validates and resolves a list of directories into a set of Path objects.
+        Validates and resolves an iterable of directories into a set of Path objects.
+        Also filters out any directories that are subdirectories (child directories) of
+        another directory in the set. For example:
+
+            input:  { Path("a/b/c"), Path("d/e"), Path("a/b") }
+            output: { Path("d/e"), Path("a/b") }
 
         Args:
             dirs (Iterable[Path | str]): An iterable of directory paths.
 
         Returns:
-            set[Path]: A set of resolved directory Path objects.
+            set[Path]: A set of resolved directory Path objects, excluding any that are subdirectories
+                       of another directory in the set.
 
         Raises:
             TypeError: If any directory is not a string or Path.
@@ -85,7 +91,22 @@ class DirectoryValidator:
         if not dir_set:
             raise ValueError("dirs cannot be empty")
 
-        return dir_set
+        base_dirs = DirectoryValidator.get_base_dirs(dir_set)
+        return base_dirs
+
+    @staticmethod
+    def get_base_dirs(dirs: set[pathlib.Path]) -> set[pathlib.Path]:
+        """Return only base directories by removing subdirectories."""
+        sorted_dirs = sorted(dirs, key=lambda x: len(x.parts), reverse=True)
+        child_dirs = set()
+
+        for i, path in enumerate(sorted_dirs):
+            for other_path in sorted_dirs[i + 1 :]:
+                if path.is_relative_to(other_path):
+                    child_dirs.add(path)
+                    break
+
+        return dirs - child_dirs
 
 
 class DupFinder:
