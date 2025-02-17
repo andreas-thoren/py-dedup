@@ -41,7 +41,7 @@ import os
 import pathlib
 import hashlib
 from concurrent.futures import ProcessPoolExecutor
-from typing import Iterable
+from typing import Iterable, Callable
 
 
 class DirectoryValidator:
@@ -516,30 +516,83 @@ class DupHandler:
         self, dirs: list[pathlib.Path | str], dry_run: bool = False, force: bool = False
     ) -> tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
         """
-        Remove duplicate files from the specified directories.
+        Remove duplicate files that reside in the specified directories.
 
-        For each duplicate group, this method determines the files that reside in the
-        deletion directories. If at least one duplicate exists outside the deletion
-        directories, then all duplicates found within the deletion directories are removed.
-        However, if all duplicates are located within the deletion directories, then all
-        except one (selected by sorted order) are deleted to ensure at least one copy remains.
+        This method filters duplicate groups by selecting files located within the provided
+        directories. For each duplicate group:
+          - If at least one file exists outside the specified directories, then all duplicates
+            within the directories are removed.
+          - If all duplicates are within the specified directories, then all but one (as determined
+            by sorted order) are deleted, ensuring that at least one copy remains.
 
         Args:
-            dirs (list[Path | str]): A list of directories where duplicates should be deleted.
-            dry_run (bool): If True, simulate deletions without actually deleting files.
-            force (bool): If True, bypasses the check for previously deleted duplicates. Use with caution.
+            dirs (list[Path | str]): A list of directory paths in which duplicate files should be removed.
+            dry_run (bool): If True, simulate file deletions without actually removing any files.
+            force (bool): If True, bypass checks for previous deletions; use with caution.
 
         Returns:
             tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
-                - A list of files (as pathlib.Path objects) that were successfully deleted.
-                - A list of tuples (file, exception) for files that could not be deleted.
+                - A list of pathlib.Path objects representing the files that were deleted (or would have been deleted in a dry run).
+                - A list of tuples, each containing a pathlib.Path and an Exception instance, for files that could not be deleted.
 
         Raises:
             ValueError: If previous deletions have occurred and `force` is not set to True.
 
         Notes:
-            - Internally calls `_delete_files`, which handles common errors such as FileNotFoundError,
-              PermissionError, and other OSError exceptions.
+            - This method internally uses the generic `_remove_duplicates` method, supplying a directory filter
+              function that selects only files within the specified directories.
+        """
+        # Validate dirs and resolve them
+        dir_set = DirectoryValidator.get_dir_set(dirs)
+
+        # Define deduplication function
+        def filter_duplicates(duplicates: list[pathlib.Path]) -> list[pathlib.Path]:
+            dups_to_delete = [
+                path
+                for path in duplicates
+                if any(path.is_relative_to(d) for d in dir_set)
+            ]
+            return dups_to_delete
+
+        return self._remove_duplicates(filter_duplicates, dry_run, force)
+
+    def _remove_duplicates(
+        self,
+        filter_duplicates: Callable[[list[pathlib.Path]], list[pathlib.Path]],
+        dry_run: bool = False,
+        force: bool = False,
+    ) -> tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
+        """
+        Generic method to remove duplicate files based on a filtering function.
+
+        For each duplicate file group discovered by the associated DupFinder, this method
+        applies the provided filtering function (`filter_duplicates`) to determine which files
+        should be removed. The filtering function accepts a list of duplicate file paths (as
+        pathlib.Path objects) and returns the subset of those paths eligible for deletion.
+
+        The deletion logic is as follows:
+          - If `filter_duplicates` returns an empty list for a duplicate group, no files are removed.
+          - If at least one duplicate exists outside the set returned by `filter_duplicates`, then all
+            files within that filtered set are removed.
+          - If all duplicates are within the filtered set, then all but one (selected by sorted order)
+            are removed to ensure at least one copy remains.
+
+        Args:
+            filter_duplicates (Callable[[list[pathlib.Path]], list[pathlib.Path]]): A callable that takes a list of duplicate file paths
+                and returns the subset of paths to delete.
+            dry_run (bool): If True, simulate file deletions without actually removing any files.
+            force (bool): If True, bypass checks for previous deletions; use with caution.
+
+        Returns:
+            tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
+                - A list of pathlib.Path objects representing the files that were deleted (or would have been deleted in a dry run).
+                - A list of tuples, each containing a pathlib.Path and an Exception instance, for files that could not be deleted.
+
+        Raises:
+            ValueError: If previous deletions have occurred and `force` is not set to True.
+
+        Notes:
+            - This method relies on `_delete_files` to perform the actual file removal and handle errors.
         """
         if self._deletions_occurred and not force:
             raise ValueError(
@@ -549,19 +602,12 @@ class DupHandler:
                 + "\nInstead use the refresh method on this DupHandler instance before calling this method again."
             )
 
-        # Validate dirs and resolve them
-        dir_set = DirectoryValidator.get_dir_set(dirs)
         deleted_files = []
         failed_deletions = []
 
         for size_group in self.finder.duplicates.values():
             for duplicate_list in size_group:
-                # Find files that reside inside any of the delete dirs.
-                dups_to_delete = [
-                    path
-                    for path in duplicate_list
-                    if any(path.is_relative_to(d) for d in dir_set)
-                ]
+                dups_to_delete = filter_duplicates(duplicate_list)
 
                 if not dups_to_delete:
                     continue
