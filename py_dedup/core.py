@@ -512,6 +512,15 @@ class DupHandler:
         self.finder = finder
         self._deletions_occurred = False
 
+    def remove_glob_duplicates(
+        self, pattern: str, dry_run: bool = False, force: bool = False
+    ) -> tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
+        # Define deduplication function
+        def filter_duplicates(duplicates: list[pathlib.Path]) -> list[pathlib.Path]:
+            return [path for path in duplicates if path.match(pattern)]
+
+        return self._remove_duplicates(filter_duplicates, dry_run, force)
+
     def remove_dir_duplicates(
         self, dirs: list[pathlib.Path | str], dry_run: bool = False, force: bool = False
     ) -> tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:

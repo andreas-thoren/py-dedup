@@ -192,7 +192,7 @@ py-dedup/
 
 ## TODO
 
-- [ ] Change/rename remove_dir_duplicates to also accept a glob pattern as an alternative to dirs to find dups to be deleted. Rename.
+- [ ] Fix tests for remove_glob_duplicates
 - [ ] Implement logging
 - [ ] Change datastructure of DupFinder to contain two dictionaries. One { "hash_value": dup_instance(file_size, set(file_paths)) }. The other { file_path: "hash_value" }. This so you can modify DupFinder instances easier.
 - [ ] Add gui.py
