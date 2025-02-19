@@ -96,13 +96,13 @@ class TestDupFinderWithTestData(unittest.TestCase):
         self.assertIn(CMPR_DIR.resolve(), result_dirs)
 
 
-class TestDupHandler(unittest.TestCase):
+class TestRemoveDirDuplicates(unittest.TestCase):
     def setUp(self):
         """
         Create a temporary directory structure and files for testing remove_dir_duplicates.
         This method runs before each test method below.
         """
-        self.temp_dir = TEST_DATA_DIR / "temp_handler_test_dir"
+        self.temp_dir = TEST_DATA_DIR / "temp_remove_dir_duplicates_test_dir"
         self.temp_dir.mkdir(exist_ok=False)
 
         # Create subdirectories
@@ -221,6 +221,37 @@ class TestDupHandler(unittest.TestCase):
         self.handler.refresh()
         self.assertFalse(self.handler._deletions_occurred)
 
+
+class TestRemoveGlobDuplicates(unittest.TestCase):
+    def setUp(self):
+        """
+        Create a temporary directory structure and files for testing remove_glob_duplicates.
+        This method runs before each test method below.
+        """
+        self.temp_dir = TEST_DATA_DIR / "temp_remove_glob_duplicates_test_dir"
+        self.temp_dir.mkdir(exist_ok=False)
+
+        # Create subdirectories
+        self.sub_dir_1 = self.temp_dir / "sub1"
+        self.sub_dir_1.mkdir(exist_ok=False)
+        self.sub_dir_2 = self.temp_dir / "sub2"
+        self.sub_dir_2.mkdir(exist_ok=False)
+        self.sub_dir_3 = self.temp_dir / "sub3"
+        self.sub_dir_3.mkdir(exist_ok=False)
+        self.sub_dir_4 = self.temp_dir / "sub4"
+        self.sub_dir_4.mkdir(exist_ok=False)
+
+        # Prepare a DupFinder and DupHandler
+        self.finder = DupFinder(dirs=[self.temp_dir])
+        self.handler = DupHandler(finder=self.finder)
+
+    def tearDown(self):
+        """
+        Remove the temporary testing directory after each test.
+        """
+        if self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir)
+
     def test_remove_glob_duplicates_simple(self):
         """
         Test removing duplicates with a simple glob pattern (e.g., "common.txt").
@@ -247,9 +278,6 @@ class TestDupHandler(unittest.TestCase):
             {self.sub_dir_1 / "common.txt", self.sub_dir_2 / "common.txt"},
         )
 
-        # Clean up the remaining duplicate
-        (self.sub_dir_3 / "common_other.txt").unlink()
-
     def test_remove_glob_duplicates_all_txt_files(self):
         """
         Test removing all .txt files using a glob pattern (e.g., "*.txt").
@@ -265,7 +293,7 @@ class TestDupHandler(unittest.TestCase):
 
         # Attempt to remove all .txt duplicates
         deleted_files, _ = self.handler.remove_glob_duplicates(
-            pattern="**/file*.txt", dry_run=False
+            pattern="**/*.txt", dry_run=False
         )
 
         # Check that the expected files are deleted
@@ -282,9 +310,6 @@ class TestDupHandler(unittest.TestCase):
             },
         )
 
-        # Clean up the remaining duplicate
-        (self.sub_dir_4 / "file4_other").unlink()
-
     def test_remove_glob_duplicates_specific_dir(self):
         """
         Test removing all .txt files in a specific directory using a glob pattern (e.g., "path/to/dir/*.txt").
@@ -292,31 +317,33 @@ class TestDupHandler(unittest.TestCase):
         # Create duplicate .txt files in different directories
         (self.sub_dir_1 / "file1.txt").write_text("Duplicate content")
         (self.sub_dir_2 / "file2.txt").write_text("Duplicate content")
+        (self.sub_dir_2 / "another_file2.txt").write_text("Duplicate content")
         (self.sub_dir_3 / "file3.txt").write_text("Duplicate content")
         (self.sub_dir_4 / "file4_other.txt").write_text("Duplicate content")
+        (self.sub_dir_2 / "file5").write_text("Duplicate content")
 
         # Refresh finder to include new files
         self.finder.refresh()
 
         # Attempt to remove all .txt duplicates in sub_dir_2
         deleted_files, _ = self.handler.remove_glob_duplicates(
-            pattern=f"{str(self.sub_dir_2)}/file*.txt", dry_run=False
+            pattern=f"{str(self.sub_dir_2)}/*.txt", dry_run=False
         )
 
         # Check that the expected files are deleted
-        self.assertTrue((self.sub_dir_1 / "file1.txt").exists())
         self.assertFalse((self.sub_dir_2 / "file2.txt").exists())
+        self.assertFalse((self.sub_dir_2 / "another_file2.txt").exists())
+        self.assertTrue((self.sub_dir_1 / "file1.txt").exists())
         self.assertTrue((self.sub_dir_3 / "file3.txt").exists())
         self.assertTrue((self.sub_dir_4 / "file4_other.txt").exists())
+        self.assertTrue((self.sub_dir_2 / "file5").exists())
         self.assertEqual(
             set(deleted_files),
-            {self.sub_dir_2 / "file2.txt"},
+            {
+                self.sub_dir_2 / "file2.txt",
+                self.sub_dir_2 / "another_file2.txt",
+            },
         )
-
-        # Clean up the remaining duplicates
-        (self.sub_dir_1 / "file1.txt").unlink()
-        (self.sub_dir_3 / "file3.txt").unlink()
-        (self.sub_dir_4 / "file4_other.txt").unlink()
 
 
 if __name__ == "__main__":
