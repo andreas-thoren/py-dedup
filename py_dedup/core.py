@@ -513,11 +513,15 @@ class DupHandler:
         self._deletions_occurred = False
 
     def remove_glob_duplicates(
-        self, pattern: str, dry_run: bool = False, force: bool = False
+        self, patterns: Iterable[str], dry_run: bool = False, force: bool = False
     ) -> tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
         # Define deduplication function
         def filter_duplicates(duplicates: list[pathlib.Path]) -> list[pathlib.Path]:
-            return [path for path in duplicates if path.match(pattern)]
+            return [
+                path
+                for path in duplicates
+                if any(path.match(pattern) for pattern in patterns)
+            ]
 
         return self._remove_duplicates(filter_duplicates, dry_run, force)
 

@@ -266,7 +266,7 @@ class TestRemoveGlobDuplicates(unittest.TestCase):
 
         # Attempt to remove duplicates matching "common.txt"
         deleted_files, _ = self.handler.remove_glob_duplicates(
-            pattern="common.txt", dry_run=False
+            patterns=["common.txt"], dry_run=False
         )
 
         # Check that the expected files are deleted
@@ -293,7 +293,7 @@ class TestRemoveGlobDuplicates(unittest.TestCase):
 
         # Attempt to remove all .txt duplicates
         deleted_files, _ = self.handler.remove_glob_duplicates(
-            pattern="**/*.txt", dry_run=False
+            patterns=["*.txt"], dry_run=False
         )
 
         # Check that the expected files are deleted
@@ -327,7 +327,7 @@ class TestRemoveGlobDuplicates(unittest.TestCase):
 
         # Attempt to remove all .txt duplicates in sub_dir_2
         deleted_files, _ = self.handler.remove_glob_duplicates(
-            pattern=f"{str(self.sub_dir_2)}/*.txt", dry_run=False
+            patterns=[f"{str(self.sub_dir_2)}/*.txt"], dry_run=False
         )
 
         # Check that the expected files are deleted
