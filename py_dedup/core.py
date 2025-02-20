@@ -515,6 +515,40 @@ class DupHandler:
     def remove_glob_duplicates(
         self, patterns: Iterable[str], dry_run: bool = False, force: bool = False
     ) -> tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
+        """
+        Remove duplicate files whose paths match the specified glob patterns.
+
+        This method filters duplicate groups by selecting files whose path matches one or more of
+        the provided glob patterns. For each duplicate group:
+          - If at least one file does not match any of the glob patterns, then all matching files
+            within the group are removed.
+          - If all duplicates in the group match the glob patterns, then all but one (as determined
+            by sorted order) are deleted, ensuring that at least one copy remains.
+
+        Args:
+            patterns (Iterable[str]): An iterable of glob-style patterns used to match file paths.
+            dry_run (bool): If True, simulate file deletions without actually removing any files.
+            force (bool): If True, bypass checks for previous deletions; use with caution.
+
+        Returns:
+            tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
+                - A list of pathlib.Path objects representing the files that were deleted (or would have been deleted in a dry run).
+                - A list of tuples, each containing a pathlib.Path and an Exception instance, for files that could not be deleted.
+
+        Raises:
+            ValueError: If previous deletions have occurred and `force` is not set to True.
+
+        Usage examples:
+            >>> from py_dedup import DupFinder, DupHandler
+            >>> finder = DupFinder(dirs=["some_directory"])
+            >>> handler = DupHandler(finder)
+            >>> # Simulate deletion of duplicates matching *.tmp or *.bak
+            >>> deleted, failed = handler.remove_glob_duplicates(patterns=["*.tmp", "*.bak"], dry_run=True)
+            >>> print(deleted)
+            >>> # Do actual deletions of of duplicates matching *.tmp or *.bak
+            >>> deleted, failed = handler.remove_glob_duplicates(patterns=["*.tmp", "*.bak"], dry_run=False)
+        """
+
         # Define deduplication function
         def filter_duplicates(duplicates: list[pathlib.Path]) -> list[pathlib.Path]:
             return [
