@@ -96,7 +96,7 @@ class TestCLIFuncs(unittest.TestCase):
         output = io.StringIO()
 
         with redirect_stdout(output):
-            delete_duplicates(dirs, [str(CMPR_DIR)], dry_run=True)
+            delete_duplicates(dirs, delete_dirs=[str(CMPR_DIR)], dry_run=True)
 
         output_list = [line.strip() for line in output.getvalue().strip().split("\n")]
         deleted_files = [" ".join(line.split(" ")[3:]) for line in output_list]
