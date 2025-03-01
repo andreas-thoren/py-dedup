@@ -72,7 +72,11 @@ def main(arguments: list[str] | None = None) -> None:
         "find-duplicates": lambda: find_duplicates(args.directories),
         "show-duplicates": lambda: show_duplicates(args.directories, args.threshold),
         "delete-duplicates": lambda: delete_duplicates(
-            args.directories, args.delete_dirs, args.delete_patterns, args.dry_run
+            args.directories,
+            args.delete_dirs,
+            args.delete_patterns,
+            args.dry_run,
+            args.threshold,
         ),
         "clear-cache": clear_cache,
     }
@@ -101,6 +105,31 @@ def set_cache(dirs: list[str]) -> pathlib.Path:
     pattern = f"{prefix}*{TMP_FILE_SUFFIX}"
     cleanup_user_tempfiles(pattern=pattern)
     return create_tempfile(dirs)
+
+
+def get_dupfinder(dirs: list[str], threshold: int) -> DupFinder:
+    """
+    Retrieves a DupFinder instance for the specified directories.
+    If a cached instance exists and is valid within the given threshold,
+    it is returned. Otherwise, a new DupFinder is created, cached, and returned.
+
+    Args:
+        dirs (list[str]): The directories to scan.
+        threshold (int): The maximum age (in minutes) for a valid cache.
+
+    Returns:
+        DupFinder: The DupFinder instance.
+    """
+    threshold_td = timedelta(minutes=threshold)
+    tmp_file = get_current_tempfile(dirs, threshold_td)
+    finder = unpickle_dupfinder(tmp_file) if tmp_file else None
+
+    if finder is None:
+        finder = DupFinder(dirs)
+        new_tmp_file = create_tempfile(dirs)
+        pickle_dupfinder(finder, new_tmp_file)
+
+    return finder
 
 
 def display_output(output: str) -> None:
@@ -134,7 +163,7 @@ def find_duplicates(dirs: list[str]) -> None:
     pickle_dupfinder(finder=finder, path=tmp_file)
 
 
-def show_duplicates(dirs: list[str], threshold: int) -> None:
+def show_duplicates(dirs: list[str], threshold: int = 1440) -> None:
     """
     Displays cached duplicate results if available within the given time threshold.
 
@@ -142,8 +171,8 @@ def show_duplicates(dirs: list[str], threshold: int) -> None:
         dirs (list[str]): The list of directories to show duplicates in.
         threshold (int): The threshold time in minutes for cache validity.
     """
-    threshold = timedelta(minutes=threshold)
-    tmp_file = get_current_tempfile(dirs, threshold)
+    threshold_td = timedelta(minutes=threshold)
+    tmp_file = get_current_tempfile(dirs, threshold_td)
     if tmp_file is None:
         print(
             f"No cached result for dirs: {dirs} exist within threshold. Use py-dedup find-duplicates"
@@ -169,6 +198,7 @@ def delete_duplicates(
     delete_dirs: list[str] | None = None,
     delete_patterns: list[str] | None = None,
     dry_run: bool = False,
+    threshold: int = 1440,
 ) -> None:
     """
     1. Scans directories (dirs) for duplicates (or loads cached results).
@@ -190,6 +220,7 @@ def delete_duplicates(
         delete_patterns (list[str] | None): Glob patterns used to match duplicate file paths for deletion.
             One and only one of delete_dirs or delete_patterns must be supplied.
         dry_run (bool): If True, simulates deletions without actually removing files.
+        threshold (int): The maximum age (in minutes) for a valid cache. Default: 1440 (1 day).
 
     Raises:
         ValueError: If an issue occurs during deletion or file retrieval.
@@ -198,16 +229,7 @@ def delete_duplicates(
         - Only one deletion criteria (directories or glob patterns) is allowed per execution.
         - If dry_run is enabled, no actual deletions occur, only a preview is provided.
     """
-    # Attempt to retrieve DupFinder instance from cache
-    tmp_file = get_current_tempfile(dirs)
-    finder = unpickle_dupfinder(tmp_file) if tmp_file else None
-
-    # If unpickling failed or no cache exists, create a new instance
-    if finder is None:
-        finder = DupFinder(dirs)
-        tmp_file = set_cache(dirs)
-        pickle_dupfinder(finder=finder, path=tmp_file)
-
+    finder = get_dupfinder(dirs=dirs, threshold=threshold)
     handler = DupHandler(finder=finder)
     if delete_dirs and not delete_patterns:
         deleted_files, error_files = handler.remove_dir_duplicates(
@@ -228,7 +250,6 @@ def delete_duplicates(
     output = f"{del_output}\n\n{err_output}\n" if err_output else f"{del_output}\n"
     display_output(output)
 
-    # If actual deletions took place, delete cache (as it is no longer current)
     if deleted_files and not dry_run:
         pattern = f"{get_tempfile_prefix(dirs)}*{TMP_FILE_SUFFIX}"
         cleanup_user_tempfiles(pattern=pattern)
@@ -328,6 +349,12 @@ def parse_args(arguments: list[str]) -> argparse.Namespace:
         "--dry-run",
         action="store_true",
         help="Perform a dry run without deleting files.",
+    )
+    delete_parser.add_argument(
+        "--threshold",
+        type=int,
+        default=1440,
+        help="Threshold (in minutes) to consider cache valid for deletion. Default: 1440 (1 day).",
     )
 
     # Subparser for clearing cache
