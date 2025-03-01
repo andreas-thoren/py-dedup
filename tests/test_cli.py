@@ -108,20 +108,21 @@ class TestParseArgs(unittest.TestCase):
 
 
 class TestCLIFuncs(unittest.TestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         """
         Create a temporary directory structure and files for testing remove_glob_duplicates.
         This method runs before each test method below.
         """
-        self.dirs = [str(TEST_DIR), str(CMPR_DIR)]
+        cls.dirs = [str(TEST_DIR), str(CMPR_DIR)]
 
-    def tearDown(self):
+    @classmethod
+    def tearDownClass(cls):
         """
         Remove the temporary testing directory after each test.
         """
-        prefix = get_tempfile_prefix(self.dirs)
-        pattern = f"{prefix}*{TMP_FILE_SUFFIX}"
-        cleanup_user_tempfiles(pattern)
+        pattern = f"{get_tempfile_prefix(cls.dirs)}*{TMP_FILE_SUFFIX}"
+        cleanup_user_tempfiles(pattern=pattern)
 
     def test_find_duplicates(self):
         # Call find_duplicates without printing output
