@@ -1,10 +1,14 @@
 import io
-import pathlib
 import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
 from py_dedup.core import DupFinder, DupHandler
-from py_dedup.cli import parse_args, find_duplicates, delete_duplicates
+from py_dedup.cli import (
+    parse_args,
+    find_duplicates,
+    delete_duplicates,
+    delete_empty_files,
+)
 from py_dedup.persistent_cache import (
     get_tempfile_prefix,
     cleanup_user_tempfiles,
@@ -13,7 +17,7 @@ from py_dedup.persistent_cache import (
     unpickle_dupfinder,
 )
 from .global_test_vars import TEST_DIR, CMPR_DIR
-from .utils_tests import dupfinders_are_equal
+from .utils_tests import dupfinders_are_equal, get_dry_run_deleted_paths
 
 
 class TestParseArgs(unittest.TestCase):
@@ -92,11 +96,36 @@ class TestParseArgs(unittest.TestCase):
                     ]
                 )
 
+    def test_delete_empty_parse_args_dryrun(self):
+        """
+        Ensure that the delete-empty command correctly parses the dry-run flag.
+        """
+        args = parse_args(["delete-empty", "dir1", "-n"])
+        self.assertEqual(args.command, "delete-empty")
+        self.assertEqual(args.directories, ["dir1"])
+        self.assertTrue(args.dry_run)
+        self.assertEqual(args.threshold, 1440)
+
 
 class TestCLIFuncs(unittest.TestCase):
+    def setUp(self):
+        """
+        Create a temporary directory structure and files for testing remove_glob_duplicates.
+        This method runs before each test method below.
+        """
+        self.dirs = [str(TEST_DIR), str(CMPR_DIR)]
+
+    def tearDown(self):
+        """
+        Remove the temporary testing directory after each test.
+        """
+        prefix = get_tempfile_prefix(self.dirs)
+        pattern = f"{prefix}*{TMP_FILE_SUFFIX}"
+        cleanup_user_tempfiles(pattern)
+
     def test_find_duplicates(self):
         # Call find_duplicates without printing output
-        dirs = [str(TEST_DIR), str(CMPR_DIR)]
+        dirs = self.dirs
         with patch("sys.stdout", new_callable=io.StringIO):
             find_duplicates(dirs)
 
@@ -106,21 +135,15 @@ class TestCLIFuncs(unittest.TestCase):
         finder = DupFinder(dirs)
         finder.sort_duplicates_alphabetically()
         self.assertTrue(dupfinders_are_equal(finder, cached_finder))
-        # Cleanup created temp_file
-        prefix = get_tempfile_prefix(dirs)
-        pattern = f"{prefix}*{TMP_FILE_SUFFIX}"
-        cleanup_user_tempfiles(pattern)
 
     def test_delete_duplicates_delete_dirs(self):
-        dirs = [str(TEST_DIR), str(CMPR_DIR)]
+        dirs = self.dirs
         output = io.StringIO()
 
         with redirect_stdout(output):
             delete_duplicates(dirs, delete_dirs=[str(CMPR_DIR)], dry_run=True)
 
-        output_list = [line.strip() for line in output.getvalue().strip().split("\n")]
-        deleted_files = [" ".join(line.split(" ")[3:]) for line in output_list]
-        deleted_paths = {pathlib.Path(path) for path in deleted_files}
+        deleted_paths = get_dry_run_deleted_paths(output)
 
         finder = DupFinder(dirs)
         handler = DupHandler(finder)
@@ -133,21 +156,14 @@ class TestCLIFuncs(unittest.TestCase):
         # Since dry_run=True no deletions should have taken place
         self.assertTrue(all(path.exists() for path in deleted_paths))
 
-        # Cleanup created temp_file
-        prefix = get_tempfile_prefix(dirs)
-        pattern = f"{prefix}*{TMP_FILE_SUFFIX}"
-        cleanup_user_tempfiles(pattern)
-
     def test_delete_duplicates_delete_patterns(self):
-        dirs = [str(TEST_DIR), str(CMPR_DIR)]
+        dirs = self.dirs
         output = io.StringIO()
 
         with redirect_stdout(output):
             delete_duplicates(dirs, delete_patterns=["*.txt"], dry_run=True)
 
-        output_list = [line.strip() for line in output.getvalue().strip().split("\n")]
-        deleted_files = [" ".join(line.split(" ")[3:]) for line in output_list]
-        deleted_paths = {pathlib.Path(path) for path in deleted_files}
+        deleted_paths = get_dry_run_deleted_paths(output)
 
         finder = DupFinder(dirs)
         handler = DupHandler(finder)
@@ -160,10 +176,28 @@ class TestCLIFuncs(unittest.TestCase):
         # Since dry_run=True no deletions should have taken place
         self.assertTrue(all(path.exists() for path in deleted_paths))
 
-        # Cleanup created temp_file
-        prefix = get_tempfile_prefix(dirs)
-        pattern = f"{prefix}*{TMP_FILE_SUFFIX}"
-        cleanup_user_tempfiles(pattern)
+    def test_delete_empty_dry_run(self):
+        """
+        Test the delete-empty CLI command in dry-run mode such that empty files are reported as deleted.
+        """
+        dirs = self.dirs
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            delete_empty_files(dirs, dry_run=True)
+
+        deleted_paths = get_dry_run_deleted_paths(output)
+
+        finder = DupFinder(dirs)
+        handler = DupHandler(finder)
+        deleted, _ = handler.delete_empty_files(dry_run=True)
+
+        # Same files should be dry_run deleted by delete_empty_files as by the
+        # programatic API
+        self.assertEqual(deleted_paths, set(deleted))
+
+        # Since dry_run=True no deletions should have taken place
+        self.assertTrue(all(path.exists() for path in deleted_paths))
 
 
 if __name__ == "__main__":

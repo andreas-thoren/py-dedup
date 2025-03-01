@@ -346,5 +346,60 @@ class TestRemoveGlobDuplicates(unittest.TestCase):
         )
 
 
+class TestDeleteEmptyFiles(unittest.TestCase):
+    def setUp(self) -> None:
+        """
+        Create a temporary directory with two empty files and one non-empty file.
+        """
+        self.temp_dir = TEST_DATA_DIR / "temp_delete_empty_files_test_dir"
+        self.temp_dir.mkdir(exist_ok=False)
+        # Create empty files
+        self.empty_file1 = self.temp_dir / "empty1.txt"
+        self.empty_file1.touch()  # creates an empty file
+        self.empty_file2 = self.temp_dir / "empty2.txt"
+        self.empty_file2.touch()
+        # Create a non-empty file
+        self.non_empty_file = self.temp_dir / "nonempty.txt"
+        self.non_empty_file.write_text("Not empty")
+        # Initialize DupFinder and DupHandler
+        self.finder = DupFinder(dirs=[self.temp_dir])
+        self.handler = DupHandler(finder=self.finder)
+
+    def tearDown(self) -> None:
+        """
+        Remove the temporary directory after each test.
+        """
+        if self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir)
+
+    def test_delete_empty_files_actual(self):
+        """
+        Test that delete_empty_files removes empty files when not in dry-run mode.
+        """
+        deleted_files, error_files = self.handler.delete_empty_files(dry_run=False)
+        # Verify that the empty files are reported as deleted
+        self.assertIn(self.empty_file1, deleted_files)
+        self.assertIn(self.empty_file2, deleted_files)
+        # Verify that the empty files are actually deleted
+        self.assertFalse(self.empty_file1.exists())
+        self.assertFalse(self.empty_file2.exists())
+        # Verify that non-empty file still exists
+        self.assertTrue(self.non_empty_file.exists())
+        self.assertEqual(len(error_files), 0)
+
+    def test_delete_empty_files_dry_run(self):
+        """
+        Test that delete_empty_files does not remove any files when in dry-run mode.
+        """
+        deleted_files, error_files = self.handler.delete_empty_files(dry_run=True)
+        # In dry-run, files should still exist on disk
+        self.assertTrue(self.empty_file1.exists())
+        self.assertTrue(self.empty_file2.exists())
+        # But the returned result should list the empty files as "would be deleted"
+        self.assertIn(self.empty_file1, deleted_files)
+        self.assertIn(self.empty_file2, deleted_files)
+        self.assertEqual(len(error_files), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
