@@ -707,6 +707,29 @@ class DupHandler:
 
         return deleted_files, failed_deletions
 
+    def delete_empty_files(
+        self, dry_run: bool = False
+    ) -> tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
+        """
+        Delete empty files identified by the associated DupFinder instance.
+
+        This method retrieves a list of empty files from the DupFinder and attempts
+        to delete each one. In dry-run mode, the deletion is simulated without
+        actually removing the files.
+
+        Args:
+            dry_run (bool): If True, simulate deletions without actually deleting files.
+
+        Returns:
+            tuple[list[pathlib.Path], list[tuple[pathlib.Path, Exception]]]:
+                - A list of pathlib.Path objects for files that were successfully deleted
+                  (or would have been deleted in a dry run).
+                - A list of tuples containing a pathlib.Path and Exception for any files
+                  that could not be deleted.
+        """
+        empty_files = self.finder.empty_files
+        return self._delete_files(empty_files, dry_run)
+
     def refresh(self):
         """
         Refresh the state of the `DupHandler` by calling the `refresh` method on

@@ -72,6 +72,26 @@ class TestParseArgs(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 parse_args([])
 
+    def test_delete_duplicates_with_duplicate_delete_args(self):
+        """
+        Providing both --delete-dirs and --delete-patterns should raise an error.
+        """
+        with patch("sys.stderr", new_callable=io.StringIO):
+            with self.assertRaises(SystemExit):
+                parse_args(
+                    [
+                        "delete-duplicates",
+                        "dir1",
+                        "dir2",
+                        "--delete-dirs",
+                        "dir3",
+                        "--delete-patterns",
+                        "*.log",
+                        "*.bak",
+                        "--dry-run",
+                    ]
+                )
+
 
 class TestCLIFuncs(unittest.TestCase):
     def test_find_duplicates(self):
@@ -91,7 +111,7 @@ class TestCLIFuncs(unittest.TestCase):
         pattern = f"{prefix}*{TMP_FILE_SUFFIX}"
         cleanup_user_tempfiles(pattern)
 
-    def test_delete_duplicates(self):
+    def test_delete_duplicates_delete_dirs(self):
         dirs = [str(TEST_DIR), str(CMPR_DIR)]
         output = io.StringIO()
 
@@ -109,6 +129,34 @@ class TestCLIFuncs(unittest.TestCase):
         # Same files should be dry_run deleted by delete_duplicates as by the
         # programatic API
         self.assertEqual(deleted_paths, set(deleted))
+
+        # Since dry_run=True no deletions should have taken place
+        self.assertTrue(all(path.exists() for path in deleted_paths))
+
+        # Cleanup created temp_file
+        prefix = get_tempfile_prefix(dirs)
+        pattern = f"{prefix}*{TMP_FILE_SUFFIX}"
+        cleanup_user_tempfiles(pattern)
+
+    def test_delete_duplicates_delete_patterns(self):
+        dirs = [str(TEST_DIR), str(CMPR_DIR)]
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            delete_duplicates(dirs, delete_patterns=["*.txt"], dry_run=True)
+
+        output_list = [line.strip() for line in output.getvalue().strip().split("\n")]
+        deleted_files = [" ".join(line.split(" ")[3:]) for line in output_list]
+        deleted_paths = {pathlib.Path(path) for path in deleted_files}
+
+        finder = DupFinder(dirs)
+        handler = DupHandler(finder)
+        deleted, _ = handler.remove_glob_duplicates(["*.txt"], dry_run=True)
+
+        # Same files should be dry_run deleted by delete_duplicates as by the
+        # programatic API
+        self.assertEqual(deleted_paths, set(deleted))
+        print(deleted_paths)
 
         # Since dry_run=True no deletions should have taken place
         self.assertTrue(all(path.exists() for path in deleted_paths))
