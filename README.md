@@ -192,7 +192,6 @@ py-dedup/
 
 ## TODO
 
-- [ ] Add tests for delete-empty command
 - [ ] Increase version number, add tag.
 - [ ] Implement logging
 - [ ] Change datastructure of DupFinder to contain two dictionaries. One { "hash_value": dup_instance(file_size, set(file_paths)) }. The other { file_path: "hash_value" }. This so you can modify DupFinder instances easier.
