@@ -156,7 +156,6 @@ class TestCLIFuncs(unittest.TestCase):
         # Same files should be dry_run deleted by delete_duplicates as by the
         # programatic API
         self.assertEqual(deleted_paths, set(deleted))
-        print(deleted_paths)
 
         # Since dry_run=True no deletions should have taken place
         self.assertTrue(all(path.exists() for path in deleted_paths))
