@@ -78,6 +78,9 @@ def main(arguments: list[str] | None = None) -> None:
             args.dry_run,
             args.threshold,
         ),
+        "delete-empty": lambda: delete_empty_files(
+            args.directories, args.dry_run, args.threshold
+        ),
         "clear-cache": clear_cache,
     }
 
@@ -255,6 +258,34 @@ def delete_duplicates(
         cleanup_user_tempfiles(pattern=pattern)
 
 
+def delete_empty_files(
+    dirs: list[str], dry_run: bool = False, threshold: int = 1440
+) -> None:
+    """
+    Deletes empty files as detected by DupFinder via DupHandler.delete_empty_files.
+
+    Args:
+        dirs (list[str]): Directories to scan.
+        dry_run (bool): If True, simulate deletions.
+        threshold (int): Cache validity threshold in minutes.
+    """
+    finder = get_dupfinder(dirs=dirs, threshold=threshold)
+    handler = DupHandler(finder=finder)
+    deleted_files, error_files = handler.delete_empty_files(dry_run)
+
+    msg = "Would have deleted:" if dry_run else "Deleted:"
+    del_output = "\n".join(f"{msg} {path}" for path in deleted_files)
+    err_output = "\n".join(
+        f"Error deleting: {path}, Exception: {exc}" for path, exc in error_files
+    )
+    output = f"{del_output}\n\n{err_output}\n" if err_output else f"{del_output}\n"
+    display_output(output)
+
+    if deleted_files and not dry_run:
+        pattern = f"{get_tempfile_prefix(dirs)}*{TMP_FILE_SUFFIX}"
+        cleanup_user_tempfiles(pattern=pattern)
+
+
 def clear_cache() -> None:
     """
     Clears all cached duplicate scan results.
@@ -355,6 +386,26 @@ def parse_args(arguments: list[str]) -> argparse.Namespace:
         type=int,
         default=1440,
         help="Threshold (in minutes) to consider cache valid for deletion. Default: 1440 (1 day).",
+    )
+
+    # Subparser for deleting empty files
+    empty_parser = subparsers.add_parser(
+        "delete-empty", help="Delete empty files identified by duplicate scanning."
+    )
+    empty_parser.add_argument(
+        "directories", nargs="+", help="Directories to scan for empty files."
+    )
+    empty_parser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        help="Perform a dry run without deleting files.",
+    )
+    empty_parser.add_argument(
+        "--threshold",
+        type=int,
+        default=1440,
+        help="Threshold (in minutes) to consider cache valid. Default: 1440 (1 day).",
     )
 
     # Subparser for clearing cache
