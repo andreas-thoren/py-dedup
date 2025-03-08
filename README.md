@@ -41,7 +41,7 @@ If you prefer to have a local copy of the repository, follow these steps:
 1. **Clone** this repository or download it as a ZIP.
 
     ```bash
-    git clone https://github.com/yourusername/py-dedup.git
+    git clone https://github.com/andreas-thoren/py-dedup.git
     ```
 
 2. **Navigate** to the project directory.
@@ -104,6 +104,14 @@ py-dedup delete-duplicates /path/to/directory1 /path/to/directory2 --delete-dirs
 ```
 
 Do the actual deletions of duplicates in `/path/to/directory2`
+
+#### Delete Empty Files
+
+```bash
+py-dedup delete-empty /path/to/directory1 /path/to/directory2
+```
+
+To scan for and remove empty files (0 bytes) from specified directories, use:
 
 #### Clear cached results
 
@@ -192,7 +200,7 @@ py-dedup/
 
 ## TODO
 
-- [ ] Increase version number, add tag.
+- [ ] Add progress status bar to hashing part
 - [ ] Implement logging
 - [ ] Change datastructure of DupFinder to contain two dictionaries. One { "hash_value": dup_instance(file_size, set(file_paths)) }. The other { file_path: "hash_value" }. This so you can modify DupFinder instances easier.
 - [ ] Add gui.py
